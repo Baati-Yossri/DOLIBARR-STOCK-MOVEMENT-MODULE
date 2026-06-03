@@ -90,18 +90,25 @@ class pdf_calcul_de_stock extends ModelePDFCommandes
                 $pdf->SetY($curY);
             }
 
+            $pdf->SetFont('', 'B', $default_font_size + 1);
+            $text = " Produit: " . $line->ref . " - " . $line->product_label;
+            
+            $h_prod1 = $pdf->getStringHeight(140, $text);
+            $h_prod2 = $pdf->getStringHeight($this->page_largeur - $this->marge_gauche - $this->marge_droite - 140, "Qté à produire: " . $line->qty . " ");
+            $h_prod = max($h_prod1, $h_prod2);
+            if ($h_prod < 8) $h_prod = 8;
+            else $h_prod += 2; // Add padding if wrapping occurs
+            
             // Big colored row for the product
             $pdf->SetFillColor(230, 240, 255); // Light blue
             $pdf->SetDrawColor(200, 200, 200);
-            $pdf->Rect($this->marge_gauche, $curY, $this->page_largeur - $this->marge_gauche - $this->marge_droite, 8, 'DF');
+            $pdf->Rect($this->marge_gauche, $curY, $this->page_largeur - $this->marge_gauche - $this->marge_droite, $h_prod, 'DF');
             
-            $pdf->SetFont('', 'B', $default_font_size + 1);
-            $text = " Produit: " . $line->ref . " - " . $line->product_label;
-            $pdf->MultiCell(140, 8, $text, 0, 'L', 0, 0, $this->marge_gauche, $curY + 1.5);
+            $pdf->MultiCell(140, $h_prod, $text, 0, 'L', 0, 0, $this->marge_gauche, $curY + ($h_prod - $h_prod1)/2);
+            $pdf->MultiCell($this->page_largeur - $this->marge_gauche - $this->marge_droite - 140, $h_prod, "Qté à produire: " . $line->qty . " ", 0, 'R', 0, 0, $this->marge_gauche + 140, $curY + ($h_prod - $h_prod2)/2);
             
-            $pdf->MultiCell($this->page_largeur - $this->marge_gauche - $this->marge_droite - 140, 8, "Qté à produire: " . $line->qty . " ", 0, 'R', 0, 1, $this->marge_gauche + 140, $curY + 1.5);
-            
-            $curY = $pdf->GetY() + 1;
+            $curY += $h_prod + 1;
+            $pdf->SetY($curY);
             
             // Sub table headers for components
             $pdf->SetFont('', 'B', $default_font_size - 1);
