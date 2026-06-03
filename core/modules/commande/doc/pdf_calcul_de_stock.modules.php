@@ -107,9 +107,9 @@ class pdf_calcul_de_stock extends ModelePDFCommandes
             $pdf->SetFont('', 'B', $default_font_size - 1);
             $pdf->SetFillColor(245, 245, 245);
             $pdf->Rect($this->marge_gauche + 10, $curY, $this->page_largeur - $this->marge_gauche - $this->marge_droite - 10, 6, 'F');
-            $pdf->MultiCell(40, 6, "Réf", 0, 'L', 0, 0, $this->marge_gauche + 12, $curY + 1);
-            $pdf->MultiCell($this->page_largeur - $this->marge_gauche - $this->marge_droite - 90, 6, "Libellé", 0, 'L', 0, 0, $this->marge_gauche + 52, $curY + 1);
-            $pdf->MultiCell(40, 6, "Besoin", 0, 'R', 0, 0, $this->page_largeur - $this->marge_droite - 40, $curY + 1);
+            $pdf->MultiCell(30, 6, "Réf", 0, 'L', 0, 0, $this->marge_gauche + 12, $curY + 1);
+            $pdf->MultiCell($this->page_largeur - $this->marge_gauche - $this->marge_droite - 65, 6, "Libellé", 0, 'L', 0, 0, $this->marge_gauche + 42, $curY + 1);
+            $pdf->MultiCell(25, 6, "Besoin", 0, 'R', 0, 0, $this->page_largeur - $this->marge_droite - 25, $curY + 1);
             
             // Top and bottom header borders
             $pdf->Line($this->marge_gauche + 10, $curY, $this->page_largeur - $this->marge_droite, $curY);
@@ -117,8 +117,8 @@ class pdf_calcul_de_stock extends ModelePDFCommandes
             
             // Vertical header borders
             $pdf->Line($this->marge_gauche + 10, $curY, $this->marge_gauche + 10, $curY + 6);
-            $pdf->Line($this->marge_gauche + 50, $curY, $this->marge_gauche + 50, $curY + 6);
-            $pdf->Line($this->page_largeur - $this->marge_droite - 40, $curY, $this->page_largeur - $this->marge_droite - 40, $curY + 6);
+            $pdf->Line($this->marge_gauche + 40, $curY, $this->marge_gauche + 40, $curY + 6);
+            $pdf->Line($this->page_largeur - $this->marge_droite - 25, $curY, $this->page_largeur - $this->marge_droite - 25, $curY + 6);
             $pdf->Line($this->page_largeur - $this->marge_droite, $curY, $this->page_largeur - $this->marge_droite, $curY + 6);
             
             $curY += 6;
@@ -153,9 +153,9 @@ class pdf_calcul_de_stock extends ModelePDFCommandes
                             
                             $needed_qty = $comp->qty * $line->qty;
                             
-                            $h1 = $pdf->getStringHeight(40, " " . $comp->ref);
-                            $h2 = $pdf->getStringHeight($this->page_largeur - $this->marge_gauche - $this->marge_droite - 90, " " . $comp->label);
-                            $h3 = $pdf->getStringHeight(40, $needed_qty . " ");
+                            $h1 = $pdf->getStringHeight(30, " " . $comp->ref);
+                            $h2 = $pdf->getStringHeight($this->page_largeur - $this->marge_gauche - $this->marge_droite - 65, " " . $comp->label);
+                            $h3 = $pdf->getStringHeight(25, $needed_qty . " ");
                             $h = max($h1, $h2, $h3);
                             if ($h < 6) $h = 6;
                             
@@ -165,14 +165,14 @@ class pdf_calcul_de_stock extends ModelePDFCommandes
                                 $pdf->Rect($this->marge_gauche + 10, $curY, $this->page_largeur - $this->marge_gauche - $this->marge_droite - 10, $h, 'F');
                             }
                             
-                            $pdf->MultiCell(40, $h, " " . $comp->ref, 0, 'L', 0, 0, $this->marge_gauche + 10, $curY + ($h - $h1)/2);
-                            $pdf->MultiCell($this->page_largeur - $this->marge_gauche - $this->marge_droite - 90, $h, " " . $comp->label, 0, 'L', 0, 0, $this->marge_gauche + 50, $curY + ($h - $h2)/2);
-                            $pdf->MultiCell(40, $h, $needed_qty . " ", 0, 'R', 0, 0, $this->page_largeur - $this->marge_droite - 40, $curY + ($h - $h3)/2);
+                            $pdf->MultiCell(30, $h, " " . $comp->ref, 0, 'L', 0, 0, $this->marge_gauche + 10, $curY + ($h - $h1)/2);
+                            $pdf->MultiCell($this->page_largeur - $this->marge_gauche - $this->marge_droite - 65, $h, " " . $comp->label, 0, 'L', 0, 0, $this->marge_gauche + 40, $curY + ($h - $h2)/2);
+                            $pdf->MultiCell(25, $h, $needed_qty . " ", 0, 'R', 0, 0, $this->page_largeur - $this->marge_droite - 25, $curY + ($h - $h3)/2);
                             
                             // Vertical borders
                             $pdf->Line($this->marge_gauche + 10, $curY, $this->marge_gauche + 10, $curY + $h);
-                            $pdf->Line($this->marge_gauche + 50, $curY, $this->marge_gauche + 50, $curY + $h);
-                            $pdf->Line($this->page_largeur - $this->marge_droite - 40, $curY, $this->page_largeur - $this->marge_droite - 40, $curY + $h);
+                            $pdf->Line($this->marge_gauche + 40, $curY, $this->marge_gauche + 40, $curY + $h);
+                            $pdf->Line($this->page_largeur - $this->marge_droite - 25, $curY, $this->page_largeur - $this->marge_droite - 25, $curY + $h);
                             $pdf->Line($this->page_largeur - $this->marge_droite, $curY, $this->page_largeur - $this->marge_droite, $curY + $h);
                             
                             $curY += $h;
