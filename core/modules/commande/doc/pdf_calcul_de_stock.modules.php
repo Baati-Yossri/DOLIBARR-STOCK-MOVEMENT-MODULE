@@ -82,18 +82,39 @@ class pdf_calcul_de_stock extends ModelePDFCommandes
 
         // Loop on lines
         foreach ($object->lines as $line) {
-            // Print Product Ref and Label
-            $pdf->SetFont('', 'B', $default_font_size);
-            $text = $line->ref . " - " . $line->product_label;
-            $pdf->MultiCell(120, 5, $text, 0, 'L', 0, 0, $this->marge_gauche, $curY);
+            // Check page break before starting a new main product block
+            if ($curY > $this->page_hauteur - $this->marge_basse - 30) {
+                $pdf->AddPage();
+                $this->_pagehead($pdf, $object, 0, $outputlangs);
+                $curY = 40;
+                $pdf->SetY($curY);
+            }
+
+            // Big colored row for the product
+            $pdf->SetFillColor(230, 240, 255); // Light blue
+            $pdf->SetDrawColor(200, 200, 200);
+            $pdf->Rect($this->marge_gauche, $curY, $this->page_largeur - $this->marge_gauche - $this->marge_droite, 8, 'DF');
             
-            // Print Qty
-            $pdf->MultiCell(40, 5, "Qté Cmd: " . $line->qty, 0, 'R', 0, 1, $this->page_largeur - $this->marge_droite - 40, $curY);
+            $pdf->SetFont('', 'B', $default_font_size + 1);
+            $text = " Produit: " . $line->ref . " - " . $line->product_label;
+            $pdf->MultiCell(140, 8, $text, 0, 'L', 0, 0, $this->marge_gauche, $curY + 1.5);
+            
+            $pdf->MultiCell($this->page_largeur - $this->marge_gauche - $this->marge_droite - 140, 8, "Qté à produire: " . $line->qty . " ", 0, 'R', 0, 1, $this->marge_gauche + 140, $curY + 1.5);
+            
+            $curY = $pdf->GetY() + 1;
+            
+            // Sub table headers for components
+            $pdf->SetFont('', 'B', $default_font_size - 1);
+            $pdf->SetFillColor(245, 245, 245);
+            $pdf->Rect($this->marge_gauche + 10, $curY, $this->page_largeur - $this->marge_gauche - $this->marge_droite - 10, 6, 'DF');
+            $pdf->MultiCell(138, 6, "Composant (Réf - Libellé)", 0, 'L', 0, 0, $this->marge_gauche + 12, $curY + 1);
+            $pdf->MultiCell($this->page_largeur - $this->marge_gauche - $this->marge_droite - 150, 6, "Besoin", 0, 'R', 0, 1, $this->marge_gauche + 150, $curY + 1);
             
             $curY = $pdf->GetY();
             $pdf->SetFont('', '', $default_font_size - 1);
 
             // Fetch BOM
+            $has_components = false;
             if (!empty($line->fk_product)) {
                 $sql = "SELECT rowid FROM " . MAIN_DB_PREFIX . "bom_bom WHERE fk_product = " . (int)$line->fk_product . " AND status = 1 LIMIT 1";
                 $res = $this->db->query($sql);
@@ -105,38 +126,47 @@ class pdf_calcul_de_stock extends ModelePDFCommandes
                     $sql_bom = "SELECT b.qty, p.ref, p.label FROM " . MAIN_DB_PREFIX . "bom_bomline b INNER JOIN " . MAIN_DB_PREFIX . "product p ON b.fk_product = p.rowid WHERE b.fk_bom = " . (int)$bom_id;
                     $res_bom = $this->db->query($sql_bom);
                     if ($res_bom && $this->db->num_rows($res_bom) > 0) {
+                        $has_components = true;
+                        $fill = false;
                         while ($comp = $this->db->fetch_object($res_bom)) {
+                            // Check page break inside components
+                            if ($curY > $this->page_hauteur - $this->marge_basse - 10) {
+                                $pdf->AddPage();
+                                $this->_pagehead($pdf, $object, 0, $outputlangs);
+                                $curY = 40;
+                                $pdf->SetY($curY);
+                            }
+                            
                             $needed_qty = $comp->qty * $line->qty;
-                            $comp_text = "   - " . $comp->ref . " | " . $comp->label;
-                            $pdf->MultiCell(120, 5, $comp_text, 0, 'L', 0, 0, $this->marge_gauche + 10, $curY);
-                            $pdf->MultiCell(40, 5, "Besoin: " . $needed_qty, 0, 'R', 0, 1, $this->page_largeur - $this->marge_droite - 40, $curY);
+                            $comp_text = " " . $comp->ref . " - " . $comp->label;
+                            
+                            // Alternate row color
+                            if ($fill) {
+                                $pdf->SetFillColor(250, 250, 250);
+                                $pdf->Rect($this->marge_gauche + 10, $curY, $this->page_largeur - $this->marge_gauche - $this->marge_droite - 10, 6, 'F');
+                            }
+                            
+                            $pdf->MultiCell(140, 6, $comp_text, 'L', 'L', 0, 0, $this->marge_gauche + 10, $curY + 1);
+                            $pdf->MultiCell($this->page_largeur - $this->marge_gauche - $this->marge_droite - 150, 6, $needed_qty . " ", 'R', 'R', 0, 1, $this->marge_gauche + 150, $curY + 1);
+                            
                             $curY = $pdf->GetY();
+                            $fill = !$fill;
                         }
-                    } else {
-                        // Empty BOM
-                        $pdf->MultiCell(0, 5, "   Aucune nomenclature associée", 0, 'L', 0, 1, $this->marge_gauche + 10, $curY);
-                        $curY = $pdf->GetY();
+                        // Bottom line of the table
+                        $pdf->Line($this->marge_gauche + 10, $curY, $this->page_largeur - $this->marge_droite, $curY);
                     }
-                } else {
-                    // No active BOM found
-                    $pdf->MultiCell(0, 5, "   Aucune nomenclature associée", 0, 'L', 0, 1, $this->marge_gauche + 10, $curY);
-                    $curY = $pdf->GetY();
                 }
-            } else {
-                // Free text line (no fk_product)
-                $pdf->MultiCell(0, 5, "   Aucune nomenclature associée", 0, 'L', 0, 1, $this->marge_gauche + 10, $curY);
+            }
+            
+            if (!$has_components) {
+                $pdf->SetTextColor(150, 150, 150);
+                $pdf->SetFont('', 'I', $default_font_size - 1);
+                $pdf->MultiCell($this->page_largeur - $this->marge_gauche - $this->marge_droite - 10, 8, "Aucune nomenclature associée ou aucun composant trouvé", 'LRB', 'C', 0, 1, $this->marge_gauche + 10, $curY);
+                $pdf->SetTextColor(0, 0, 0);
                 $curY = $pdf->GetY();
             }
             
-            $curY += 5; // space before next orderline
-            
-            // Check page break
-            if ($curY > $this->page_hauteur - $this->marge_basse - 20) {
-                $pdf->AddPage();
-                $this->_pagehead($pdf, $object, 0, $outputlangs);
-                $curY = 30;
-                $pdf->SetY($curY);
-            }
+            $curY += 8; // space before next orderline
         }
 
         $pdf->Close();
