@@ -215,21 +215,36 @@ class pdf_calcul_de_stock extends ModelePDFCommandes
         global $conf, $langs;
         $default_font_size = pdf_getPDFFontSize($outputlangs);
         
-        $pdf->SetFont('', 'B', $default_font_size + 3);
+        // Title: CALCUL DE STOCK
+        $pdf->SetTextColor(0, 50, 100); // Dark Blue
+        $pdf->SetFont('', 'B', $default_font_size + 6);
         $pdf->SetXY($this->marge_gauche, $this->marge_haute);
-        $pdf->MultiCell(100, 5, "CALCUL DE STOCK", 0, 'L');
+        $pdf->MultiCell(100, 10, "CALCUL DE STOCK", 0, 'L');
         
-        $pdf->SetFont('', '', $default_font_size);
-        $pdf->SetXY($this->marge_gauche, $this->marge_haute + 8);
-        $pdf->MultiCell(100, 5, "Commande: " . $object->ref, 0, 'L');
-        $date = dol_print_date($object->date, 'daytext');
-        $pdf->SetXY($this->marge_gauche, $this->marge_haute + 13);
-        $pdf->MultiCell(100, 5, "Date: " . $date, 0, 'L');
+        // Commande Ref inside a light gray box
+        $pdf->SetFillColor(240, 240, 240);
+        $pdf->SetDrawColor(200, 200, 200);
+        $pdf->SetTextColor(0, 0, 0);
+        $pdf->SetFont('', 'B', $default_font_size + 2);
+        $pdf->SetXY($this->page_largeur - $this->marge_droite - 70, $this->marge_haute);
+        $pdf->MultiCell(70, 8, "COMMANDE : " . $object->ref, 1, 'C', 1);
 
+        // Date
+        $date = dol_print_date($object->date, 'daytext');
+        $pdf->SetFont('', '', $default_font_size);
+        $pdf->SetXY($this->page_largeur - $this->marge_droite - 70, $this->marge_haute + 10);
+        $pdf->MultiCell(70, 5, "Date : " . $date, 0, 'R');
+
+        // Customer
         if ($showaddress && is_object($object->thirdparty)) {
-            $pdf->SetXY($this->page_largeur / 2, $this->marge_haute);
-            $pdf->MultiCell($this->page_largeur / 2 - $this->marge_droite, 5, $object->thirdparty->name, 0, 'R');
+            $pdf->SetFont('', 'B', $default_font_size + 1);
+            $pdf->SetXY($this->marge_gauche, $this->marge_haute + 12);
+            $pdf->MultiCell(100, 5, "Client : " . $object->thirdparty->name, 0, 'L');
         }
+        
+        // Horizontal separator
+        $pdf->SetDrawColor(200, 200, 200);
+        $pdf->Line($this->marge_gauche, $this->marge_haute + 22, $this->page_largeur - $this->marge_droite, $this->marge_haute + 22);
         
         return 0;
     }
