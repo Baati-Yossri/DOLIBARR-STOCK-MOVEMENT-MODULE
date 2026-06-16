@@ -18,7 +18,7 @@ class modCalcul_stock extends DolibarrModules
         $this->version = '1.0';
         $this->const_name = 'MAIN_MODULE_' . strtoupper($this->name);
         $this->picto = 'technic';
-        
+
         // Data directories to create when module is enabled
         $this->dirs = array(
             "/calcul_stock/core/modules/commande/doc"
@@ -34,5 +34,49 @@ class modCalcul_stock extends DolibarrModules
         $this->phpmin = array(7, 0);
         $this->need_dolibarr_version = array(10, 0);
         $this->langfiles = array();
+    }
+
+    /**
+     * Function called when module is enabled.
+     * The init function add constants, boxes, permissions and menus (defined in constructor) into Dolibarr database.
+     * It also creates data directories
+     *
+     * @param string $options    Options when enabling module ('', 'noboxes')
+     * @return int               1 if OK, 0 if KO
+     */
+    public function init($options = '')
+    {
+        $result = parent::init($options);
+
+        if ($result > 0) {
+            // Create extrafields
+            require_once DOL_DOCUMENT_ROOT . '/core/class/extrafields.class.php';
+            $extrafields = new ExtraFields($this->db);
+
+            $extrafields->addExtraField(
+                'entrepot_selection',
+                'Entrepôt',
+                'sellist',
+                100,            // pos
+                '255',          // size
+                'bom_bomline',
+                0,              // unique
+                0,              // required
+                '',             // default_value
+                array('options' => array('entrepot:ref:rowid' => '')), // param
+                1,              // alwayseditable
+                '',             // perms
+                '1',            // list
+                '',             // help
+                '',             // computed
+                '',             // entity
+                '',             // langfile
+                '1',            // enabled
+                0,              // totalizable
+                1               // printable
+            );
+        }
+
+        return $result;
     }
 }

@@ -135,60 +135,67 @@ class pdf_calcul_de_stock extends ModelePDFCommandes
             // Fetch BOM
             $has_components = false;
             if (!empty($line->fk_product)) {
-                $sql = "SELECT rowid FROM " . MAIN_DB_PREFIX . "bom_bom WHERE fk_product = " . (int)$line->fk_product . " AND status = 1 LIMIT 1";
-                $res = $this->db->query($sql);
-                if ($res && $this->db->num_rows($res) > 0) {
-                    $obj = $this->db->fetch_object($res);
-                    $bom_id = $obj->rowid;
+                require_once DOL_DOCUMENT_ROOT . '/custom/factory/class/factory.class.php';
+                $factory = new Factory($this->db);
 
-                    // Fetch Components
-                    $sql_bom = "SELECT b.qty, p.ref, p.label FROM " . MAIN_DB_PREFIX . "bom_bomline b INNER JOIN " . MAIN_DB_PREFIX . "product p ON b.fk_product = p.rowid WHERE b.fk_bom = " . (int)$bom_id;
-                    $res_bom = $this->db->query($sql_bom);
-                    if ($res_bom && $this->db->num_rows($res_bom) > 0) {
-                        $has_components = true;
-                        $fill = false;
-                        while ($comp = $this->db->fetch_object($res_bom)) {
-                            // Check page break inside components
-                            if ($curY > $this->page_hauteur - $this->marge_basse - 10) {
-                                $pdf->Line($this->marge_gauche + 10, $curY, $this->page_largeur - $this->marge_droite, $curY); // bottom line before break
-                                $pdf->AddPage();
-                                $this->_pagehead($pdf, $object, 0, $outputlangs);
-                                $curY = 40;
-                                $pdf->SetY($curY);
-                                $pdf->Line($this->marge_gauche + 10, $curY, $this->page_largeur - $this->marge_droite, $curY); // top line after break
-                            }
-                            
-                            $needed_qty = $comp->qty * $line->qty;
-                            
-                            $h1 = $pdf->getStringHeight(30, " " . $comp->ref);
-                            $h2 = $pdf->getStringHeight($this->page_largeur - $this->marge_gauche - $this->marge_droite - 65, " " . $comp->label);
-                            $h3 = $pdf->getStringHeight(25, $needed_qty . " ");
-                            $h = max($h1, $h2, $h3);
-                            if ($h < 6) $h = 6;
-                            
-                            // Alternate row color
-                            if ($fill) {
-                                $pdf->SetFillColor(250, 250, 250);
-                                $pdf->Rect($this->marge_gauche + 10, $curY, $this->page_largeur - $this->marge_gauche - $this->marge_droite - 10, $h, 'F');
-                            }
-                            
-                            $pdf->MultiCell(30, $h, " " . $comp->ref, 0, 'L', 0, 0, $this->marge_gauche + 10, $curY + ($h - $h1)/2);
-                            $pdf->MultiCell($this->page_largeur - $this->marge_gauche - $this->marge_droite - 65, $h, " " . $comp->label, 0, 'L', 0, 0, $this->marge_gauche + 40, $curY + ($h - $h2)/2);
-                            $pdf->MultiCell(25, $h, $needed_qty . " ", 0, 'R', 0, 0, $this->page_largeur - $this->marge_droite - 25, $curY + ($h - $h3)/2);
-                            
-                            // Vertical borders
-                            $pdf->Line($this->marge_gauche + 10, $curY, $this->marge_gauche + 10, $curY + $h);
-                            $pdf->Line($this->marge_gauche + 40, $curY, $this->marge_gauche + 40, $curY + $h);
-                            $pdf->Line($this->page_largeur - $this->marge_droite - 25, $curY, $this->page_largeur - $this->marge_droite - 25, $curY + $h);
-                            $pdf->Line($this->page_largeur - $this->marge_droite, $curY, $this->page_largeur - $this->marge_droite, $curY + $h);
-                            
-                            $curY += $h;
+                // Fetch Components using getChildsArbo which uses llx_product_factory
+                $components = $factory->getChildsArbo($line->fk_product);
+                
+                if (!empty($components) && is_array($components)) {
+                    $has_components = true;
+                    $fill = false;
+                    
+                    $product_static = new Product($this->db);
+                    
+                    foreach ($components as $compId => $compData) {
+                        // Check page break inside components
+                        if ($curY > $this->page_hauteur - $this->marge_basse - 10) {
+                            $pdf->Line($this->marge_gauche + 10, $curY, $this->page_largeur - $this->marge_droite, $curY); // bottom line before break
+                            $pdf->AddPage();
+                            $this->_pagehead($pdf, $object, 0, $outputlangs);
+                            $curY = 40;
                             $pdf->SetY($curY);
-                            $fill = !$fill;
+                            $pdf->Line($this->marge_gauche + 10, $curY, $this->page_largeur - $this->marge_droite, $curY); // top line after break
                         }
-                        // Bottom line of the table
-                        $pdf->Line($this->marge_gauche + 10, $curY, $this->page_largeur - $this->marge_droite, $curY);
+                        
+                        $product_static->fetch($compId);
+                        
+                        // $compData[1] is qty
+                        // $compData[3] is label
+                        $comp_qty = $compData[1];
+                        $comp_ref = $product_static->ref;
+                        $comp_label = !empty($product_static->label) ? $product_static->label : $compData[3];
+                        
+                        $needed_qty = $comp_qty * $line->qty;
+                        
+                        $h1 = $pdf->getStringHeight(30, " " . $comp_ref);
+                        $h2 = $pdf->getStringHeight($this->page_largeur - $this->marge_gauche - $this->marge_droite - 65, " " . $comp_label);
+                        $h3 = $pdf->getStringHeight(25, $needed_qty . " ");
+                        $h = max($h1, $h2, $h3);
+                        if ($h < 6) $h = 6;
+                        
+                        // Alternate row color
+                        if ($fill) {
+                            $pdf->SetFillColor(250, 250, 250);
+                            $pdf->Rect($this->marge_gauche + 10, $curY, $this->page_largeur - $this->marge_gauche - $this->marge_droite - 10, $h, 'F');
+                        }
+                        
+                        $pdf->MultiCell(30, $h, " " . $comp_ref, 0, 'L', 0, 0, $this->marge_gauche + 10, $curY + ($h - $h1)/2);
+                        $pdf->MultiCell($this->page_largeur - $this->marge_gauche - $this->marge_droite - 65, $h, " " . $comp_label, 0, 'L', 0, 0, $this->marge_gauche + 40, $curY + ($h - $h2)/2);
+                        $pdf->MultiCell(25, $h, $needed_qty . " ", 0, 'R', 0, 0, $this->page_largeur - $this->marge_droite - 25, $curY + ($h - $h3)/2);
+                        
+                        // Vertical borders
+                        $pdf->Line($this->marge_gauche + 10, $curY, $this->marge_gauche + 10, $curY + $h);
+                        $pdf->Line($this->marge_gauche + 40, $curY, $this->marge_gauche + 40, $curY + $h);
+                        $pdf->Line($this->page_largeur - $this->marge_droite - 25, $curY, $this->page_largeur - $this->marge_droite - 25, $curY + $h);
+                        $pdf->Line($this->page_largeur - $this->marge_droite, $curY, $this->page_largeur - $this->marge_droite, $curY + $h);
+                        
+                        $curY += $h;
+                        $pdf->SetY($curY);
+                        $fill = !$fill;
                     }
+                    // Bottom line of the table
+                    $pdf->Line($this->marge_gauche + 10, $curY, $this->page_largeur - $this->marge_droite, $curY);
                 }
             }
             
