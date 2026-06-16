@@ -34,6 +34,7 @@ class modCalcul_stock extends DolibarrModules
         $this->phpmin = array(7, 0);
         $this->need_dolibarr_version = array(10, 0);
         $this->langfiles = array();
+        $this->config_page_url = array(DOL_URL_ROOT . '/custom/calcul_stock/admin/setup.php');
 
         // Add a tab to the Commande card
         $this->tabs = array(

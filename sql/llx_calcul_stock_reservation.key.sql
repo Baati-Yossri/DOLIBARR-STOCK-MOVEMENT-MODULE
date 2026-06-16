@@ -1,0 +1,3 @@
+ALTER TABLE llx_calcul_stock_reservation ADD INDEX idx_calcul_stock_reservation_fk_commande (fk_commande);
+ALTER TABLE llx_calcul_stock_reservation ADD INDEX idx_calcul_stock_reservation_fk_commandeline (fk_commandeline);
+ALTER TABLE llx_calcul_stock_reservation ADD INDEX idx_calcul_stock_reservation_fk_product (fk_product);
