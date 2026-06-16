@@ -92,6 +92,70 @@ if ($action == 'reserve' && $reserve_warehouse_id > 0) {
         $reservation->update($user);
         setEventMessages($langs->trans("ReservationFinalized"), null, 'mesgs');
     }
+} elseif ($action == 'reserve_all' && $reserve_warehouse_id > 0) {
+    $factory = new Factory($db);
+    $product_static = new Product($db);
+    $reservation_static = new CalculStockReservation($db);
+    $mouv = new MouvementStock($db);
+    $success_count = 0;
+    
+    foreach ($object->lines as $line) {
+        if (!empty($line->fk_product)) {
+            $components = $factory->getChildsArbo($line->fk_product);
+            if (!empty($components) && is_array($components)) {
+                foreach ($components as $compId => $compData) {
+                    $fk_entrepot = !empty($compData['fk_entrepot']) ? $compData['fk_entrepot'] : 0;
+                    if ($fk_entrepot > 0) {
+                        $product_static->fetch($compId);
+                        $product_static->load_stock();
+                        $stock_qty = 0;
+                        if (isset($product_static->stock_warehouse[$fk_entrepot])) {
+                            $stock_qty = $product_static->stock_warehouse[$fk_entrepot]->real;
+                        }
+                        
+                        $needed_qty = $compData[1] * $line->qty;
+                        $qty_reserved = 0;
+                        $status = 0;
+                        if ($reservation_static->fetchByLineAndProduct($line->id, $compId) > 0) {
+                            $qty_reserved = $reservation_static->qty;
+                            $status = $reservation_static->status;
+                        }
+                        
+                        $a_reserver = $needed_qty - $qty_reserved;
+                        if ($a_reserver > 0 && $stock_qty > 0 && $status == 0) {
+                            $qty_to_reserve = min($a_reserver, $stock_qty);
+                            
+                            $res1 = $mouv->livraison($user, $compId, $fk_entrepot, $qty_to_reserve, 0, 'Reservation commande ' . $object->ref);
+                            $res2 = $mouv->reception($user, $compId, $reserve_warehouse_id, $qty_to_reserve, 0, 'Reservation commande ' . $object->ref);
+                            
+                            if ($res1 > 0 && $res2 > 0) {
+                                $reservation = new CalculStockReservation($db);
+                                if ($reservation->fetchByLineAndProduct($line->id, $compId) > 0) {
+                                    $reservation->qty += $qty_to_reserve;
+                                    $reservation->update($user);
+                                } else {
+                                    $reservation->fk_commande = $object->id;
+                                    $reservation->fk_commandeline = $line->id;
+                                    $reservation->fk_product = $compId;
+                                    $reservation->fk_entrepot_source = $fk_entrepot;
+                                    $reservation->qty = $qty_to_reserve;
+                                    $reservation->status = 0;
+                                    $reservation->create($user);
+                                }
+                                $success_count++;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    if ($success_count > 0) {
+        setEventMessages($langs->trans("StockReservedSuccessfully") . " (" . $success_count . " composants)", null, 'mesgs');
+    } else {
+        setEventMessages("Aucun stock supplémentaire disponible pour la réservation.", null, 'warnings');
+    }
 }
 
 /*
@@ -234,6 +298,12 @@ if ($object->id > 0) {
     }
     
     print '</table>';
+    
+    if ($reserve_warehouse_id > 0) {
+        print '<br><div class="center">';
+        print '<a class="button" href="'.$_SERVER["PHP_SELF"].'?id='.$object->id.'&action=reserve_all&token='.currentToken().'">Réserver tout le disponible</a>';
+        print '</div>';
+    }
     
     print '</div>';
     dol_fiche_end();
