@@ -34,6 +34,11 @@ class modCalcul_stock extends DolibarrModules
         $this->phpmin = array(7, 0);
         $this->need_dolibarr_version = array(10, 0);
         $this->langfiles = array();
+
+        // Add a tab to the Commande card
+        $this->tabs = array(
+            'order:+calcul_stock_tab:Mouvements de stock:@calcul_stock:$user->rights->commande->lire:/custom/calcul_stock/commande_stock.php?id=__ID__'
+        );
     }
 
     /**
