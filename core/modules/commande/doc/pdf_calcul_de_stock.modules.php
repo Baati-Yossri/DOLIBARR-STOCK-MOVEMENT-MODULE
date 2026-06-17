@@ -170,6 +170,7 @@ class pdf_calcul_de_stock extends ModelePDFCommandes
                         } else {
                             $stock_qty = $product_static->stock_reel;
                         }
+                        $stock_qty = round($stock_qty, 5);
                         
                         // $compData[1] is qty
                         // $compData[3] is label

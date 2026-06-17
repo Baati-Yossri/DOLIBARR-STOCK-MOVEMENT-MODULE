@@ -268,7 +268,7 @@ if ($object->id > 0) {
                     } else {
                         $color = $a_reserver > 0 ? '#d9534f' : '#5cb85c';
                         print '<td class="right" style="color: ' . $color . '; ' . $border_style . '"><b>' . $a_reserver . '</b></td>';
-                        print '<td class="right" style="' . $border_style . '">' . $stock_qty . '</td>';
+                        print '<td class="right" style="' . $border_style . '">' . round($stock_qty, 5) . '</td>';
                         print '<td style="' . $border_style . '">' . $entrepot_name . '</td>';
                         
                         print '<td class="right" style="' . $border_style . '">';
