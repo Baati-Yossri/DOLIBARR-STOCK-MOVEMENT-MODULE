@@ -205,6 +205,8 @@ if ($object->id > 0) {
             $components = $factory->getChildsArbo($line->fk_product);
             
             if (!empty($components) && is_array($components)) {
+                $comp_count = count($components);
+                $is_first_comp = true;
                 foreach ($components as $compId => $compData) {
                     $product_static->fetch($compId);
                     $product_static->load_stock();
@@ -243,24 +245,29 @@ if ($object->id > 0) {
                     $a_reserver = $needed_qty - $qty_reserved;
                     if ($a_reserver < 0) $a_reserver = 0;
                     
+                    $border_style = ($compId === array_key_last($components)) ? 'border-bottom: 2px solid #ddd;' : 'border-bottom: 1px solid #eee;';
+                    
                     print '<tr class="oddeven">';
-                    print '<td>' . $line->ref . ' - ' . $line->product_label . ' <span class="opacitymedium">(Qté: ' . $line->qty . ')</span></td>';
-                    print '<td>' . $comp_ref_link . ' - ' . $comp_label . '</td>';
-                    print '<td class="right">' . $needed_qty . '</td>';
-                    print '<td class="right" style="color: #5cb85c;"><b>' . $qty_reserved . '</b></td>';
+                    if ($is_first_comp) {
+                        print '<td rowspan="' . $comp_count . '" style="vertical-align: top; background-color: #f8f8f8; border-bottom: 2px solid #ddd;"><b>' . $line->ref . '</b><br>' . $line->product_label . '<br><span class="opacitymedium">Qté Commande: ' . $line->qty . '</span></td>';
+                        $is_first_comp = false;
+                    }
+                    print '<td style="' . $border_style . '">' . $comp_ref_link . ' - ' . $comp_label . '</td>';
+                    print '<td class="right" style="' . $border_style . '">' . $needed_qty . '</td>';
+                    print '<td class="right" style="color: #5cb85c; ' . $border_style . '"><b>' . $qty_reserved . '</b></td>';
                     
                     if ($status == 1) {
-                        print '<td class="right"><span class="badge" style="background-color: #5cb85c; color: white; padding: 3px 6px; border-radius: 3px;">Consommé</span></td>';
-                        print '<td class="right opacitymedium">-</td>';
-                        print '<td>' . $entrepot_name . '</td>';
-                        print '<td class="right opacitymedium">Terminé</td>';
+                        print '<td class="right" style="' . $border_style . '"><span class="badge" style="background-color: #5cb85c; color: white; padding: 3px 6px; border-radius: 3px;">Consommé</span></td>';
+                        print '<td class="right opacitymedium" style="' . $border_style . '">-</td>';
+                        print '<td style="' . $border_style . '">' . $entrepot_name . '</td>';
+                        print '<td class="right opacitymedium" style="' . $border_style . '">Terminé</td>';
                     } else {
                         $color = $a_reserver > 0 ? '#d9534f' : '#5cb85c';
-                        print '<td class="right" style="color: ' . $color . ';"><b>' . $a_reserver . '</b></td>';
-                        print '<td class="right">' . $stock_qty . '</td>';
-                        print '<td>' . $entrepot_name . '</td>';
+                        print '<td class="right" style="color: ' . $color . '; ' . $border_style . '"><b>' . $a_reserver . '</b></td>';
+                        print '<td class="right" style="' . $border_style . '">' . $stock_qty . '</td>';
+                        print '<td style="' . $border_style . '">' . $entrepot_name . '</td>';
                         
-                        print '<td class="right">';
+                        print '<td class="right" style="' . $border_style . '">';
                         if (empty($reserve_warehouse_id)) {
                             print '<span class="error" title="Entrepôt non configuré">Non configuré</span>';
                         } else if ($fk_entrepot == 0) {
