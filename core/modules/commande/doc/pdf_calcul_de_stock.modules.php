@@ -3,6 +3,7 @@
 require_once DOL_DOCUMENT_ROOT . '/core/modules/commande/modules_commande.php';
 require_once DOL_DOCUMENT_ROOT . '/product/class/product.class.php';
 require_once DOL_DOCUMENT_ROOT . '/core/lib/pdf.lib.php';
+require_once DOL_DOCUMENT_ROOT . '/custom/calcul_stock/class/calculstockreservation.class.php';
 
 class pdf_calcul_de_stock extends ModelePDFCommandes
 {
@@ -90,8 +91,45 @@ class pdf_calcul_de_stock extends ModelePDFCommandes
                 $pdf->SetY($curY);
             }
 
+            // Fetch BOM components beforehand
+            $components = array();
+            if (!empty($line->fk_product)) {
+                require_once DOL_DOCUMENT_ROOT . '/custom/factory/class/factory.class.php';
+                $factory = new Factory($this->db);
+                $components = $factory->getChildsArbo($line->fk_product);
+            }
+
+            // Calculate overall status for the orderline
+            $status_text = "";
+            if (!empty($components) && is_array($components)) {
+                $total_comps = count($components);
+                $reserved_count = 0;
+                $consumed_count = 0;
+                
+                $reservation_static = new CalculStockReservation($this->db);
+                foreach ($components as $compId => $compData) {
+                    if ($reservation_static->fetchByLineAndProduct($line->id, $compId) > 0) {
+                        if ($reservation_static->status == 1) {
+                            $consumed_count++;
+                        } elseif ($reservation_static->status == 0) {
+                            $reserved_count++;
+                        }
+                    }
+                }
+                
+                if ($consumed_count == $total_comps) {
+                    $status_text = " (CONSOMMÉ)";
+                } elseif ($reserved_count + $consumed_count == $total_comps) {
+                    $status_text = " (RÉSERVÉ)";
+                } elseif ($reserved_count > 0 || $consumed_count > 0) {
+                    $status_text = " (RÉSERVÉ PARTIEL)";
+                } else {
+                    $status_text = " (NON RÉSERVÉ)";
+                }
+            }
+
             $pdf->SetFont('', 'B', $default_font_size + 1);
-            $text = " Produit: " . $line->ref . " - " . $line->product_label;
+            $text = " Produit: " . $line->ref . " - " . $line->product_label . $status_text;
             
             $h_prod1 = $pdf->getStringHeight(140, $text);
             $h_prod2 = $pdf->getStringHeight($this->page_largeur - $this->marge_gauche - $this->marge_droite - 140, "Qté à produire: " . $line->qty . " ");
@@ -141,20 +179,13 @@ class pdf_calcul_de_stock extends ModelePDFCommandes
 
             // Fetch BOM
             $has_components = false;
-            if (!empty($line->fk_product)) {
-                require_once DOL_DOCUMENT_ROOT . '/custom/factory/class/factory.class.php';
-                $factory = new Factory($this->db);
-
-                // Fetch Components using getChildsArbo which uses llx_product_factory
-                $components = $factory->getChildsArbo($line->fk_product);
+            if (!empty($components) && is_array($components)) {
+                $has_components = true;
+                $fill = false;
                 
-                if (!empty($components) && is_array($components)) {
-                    $has_components = true;
-                    $fill = false;
-                    
-                    $product_static = new Product($this->db);
-                    
-                    foreach ($components as $compId => $compData) {
+                $product_static = new Product($this->db);
+                
+                foreach ($components as $compId => $compData) {
                         // Check page break inside components
                         if ($curY > $this->page_hauteur - $this->marge_basse - 10) {
                             $pdf->Line($this->marge_gauche, $curY, $this->page_largeur - $this->marge_droite, $curY); // bottom line before break
@@ -177,11 +208,23 @@ class pdf_calcul_de_stock extends ModelePDFCommandes
                         }
                         $stock_qty = round($stock_qty, 5);
                         
-                        // $compData[1] is qty
-                        // $compData[3] is label
                         $comp_qty = $compData[1];
                         $comp_ref = $product_static->ref;
-                        $comp_label = !empty($product_static->label) ? $product_static->label : $compData[3];
+                        
+                        // Fetch component reservation status
+                        $comp_status_text = "";
+                        $reservation_static = new CalculStockReservation($this->db);
+                        if ($reservation_static->fetchByLineAndProduct($line->id, $compId) > 0) {
+                            if ($reservation_static->status == 1) {
+                                $comp_status_text = " (Consommé)";
+                            } elseif ($reservation_static->status == 0) {
+                                $comp_status_text = " (Réservé)";
+                            }
+                        } else {
+                            $comp_status_text = " (Non réservé)";
+                        }
+                        
+                        $comp_label = (!empty($product_static->label) ? $product_static->label : $compData[3]) . $comp_status_text;
                         
                         $needed_qty = $comp_qty * $line->qty;
                         
@@ -227,7 +270,6 @@ class pdf_calcul_de_stock extends ModelePDFCommandes
                     // Bottom line of the table
                     $pdf->Line($this->marge_gauche, $curY, $this->page_largeur - $this->marge_droite, $curY);
                 }
-            }
             
             if (!$has_components) {
                 $pdf->SetTextColor(150, 150, 150);
