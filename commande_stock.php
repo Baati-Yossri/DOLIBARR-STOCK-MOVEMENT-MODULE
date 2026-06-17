@@ -258,8 +258,8 @@ if ($object->id > 0) {
                         $is_first_comp = false;
                     }
                     print '<td style="' . $border_style . '">' . $comp_ref_link . ' - ' . $comp_label . '</td>';
-                    print '<td class="right" style="' . $border_style . '">' . $needed_qty . '</td>';
-                    print '<td class="right" style="color: #5cb85c; ' . $border_style . '"><b>' . $qty_reserved . '</b></td>';
+                    print '<td class="right" style="' . $border_style . '">' . round($needed_qty, 5) . '</td>';
+                    print '<td class="right" style="color: #5cb85c; ' . $border_style . '"><b>' . round($qty_reserved, 5) . '</b></td>';
 
                     if ($status == 1) {
                         print '<td class="right" style="' . $border_style . '"><span class="badge" style="background-color: #5cb85c; color: white; padding: 3px 6px; border-radius: 3px;">Consommé</span></td>';
@@ -268,7 +268,7 @@ if ($object->id > 0) {
                         print '<td class="right opacitymedium" style="' . $border_style . '">Terminé</td>';
                     } else {
                         $color = $a_reserver > 0 ? '#d9534f' : '#5cb85c';
-                        print '<td class="right" style="color: ' . $color . '; ' . $border_style . '"><b>' . $a_reserver . '</b></td>';
+                        print '<td class="right" style="color: ' . $color . '; ' . $border_style . '"><b>' . round($a_reserver, 5) . '</b></td>';
                         print '<td class="right" style="' . $border_style . '">' . round($stock_qty, 5) . '</td>';
                         print '<td style="' . $border_style . '">' . $entrepot_name . '</td>';
 
