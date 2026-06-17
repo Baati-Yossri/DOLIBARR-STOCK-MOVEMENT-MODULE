@@ -202,6 +202,10 @@ if ($object->id > 0) {
 
     foreach ($object->lines as $line) {
         if (!empty($line->fk_product)) {
+            $parent_product = new Product($db);
+            $parent_product->fetch($line->fk_product);
+            $parent_ref_link = $parent_product->getNomUrl(1);
+            
             $components = $factory->getChildsArbo($line->fk_product);
             
             if (!empty($components) && is_array($components)) {
@@ -249,7 +253,7 @@ if ($object->id > 0) {
                     
                     print '<tr class="oddeven">';
                     if ($is_first_comp) {
-                        print '<td rowspan="' . $comp_count . '" style="vertical-align: top; background-color: #f8f8f8; border-bottom: 2px solid #ddd;"><b>' . $line->ref . '</b><br>' . $line->product_label . '<br><span class="opacitymedium">Qté Commande: ' . $line->qty . '</span></td>';
+                        print '<td rowspan="' . $comp_count . '" style="vertical-align: top; background-color: #f8f8f8; border-bottom: 2px solid #ddd;">' . $parent_ref_link . '<br>' . $line->product_label . '<br><span class="opacitymedium">Qté Commande: ' . $line->qty . '</span></td>';
                         $is_first_comp = false;
                     }
                     print '<td style="' . $border_style . '">' . $comp_ref_link . ' - ' . $comp_label . '</td>';
