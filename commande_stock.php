@@ -6,13 +6,13 @@
  */
 
 require '../../main.inc.php';
-require_once DOL_DOCUMENT_ROOT.'/commande/class/commande.class.php';
-require_once DOL_DOCUMENT_ROOT.'/core/lib/order.lib.php';
-require_once DOL_DOCUMENT_ROOT.'/custom/factory/class/factory.class.php';
-require_once DOL_DOCUMENT_ROOT.'/product/class/product.class.php';
-require_once DOL_DOCUMENT_ROOT.'/product/stock/class/entrepot.class.php';
-require_once DOL_DOCUMENT_ROOT.'/product/stock/class/mouvementstock.class.php';
-require_once DOL_DOCUMENT_ROOT.'/custom/calcul_stock/class/calculstockreservation.class.php';
+require_once DOL_DOCUMENT_ROOT . '/commande/class/commande.class.php';
+require_once DOL_DOCUMENT_ROOT . '/core/lib/order.lib.php';
+require_once DOL_DOCUMENT_ROOT . '/custom/factory/class/factory.class.php';
+require_once DOL_DOCUMENT_ROOT . '/product/class/product.class.php';
+require_once DOL_DOCUMENT_ROOT . '/product/stock/class/entrepot.class.php';
+require_once DOL_DOCUMENT_ROOT . '/product/stock/class/mouvementstock.class.php';
+require_once DOL_DOCUMENT_ROOT . '/custom/calcul_stock/class/calculstockreservation.class.php';
 
 $id = GETPOST('id', 'int');
 $ref = GETPOST('ref', 'alpha');
@@ -40,12 +40,12 @@ if ($action == 'reserve' && $reserve_warehouse_id > 0) {
     $fk_product = GETPOST('fk_product', 'int');
     $qty_to_reserve = GETPOST('qty', 'int');
     $fk_entrepot_source = GETPOST('fk_entrepot_source', 'int');
-    
+
     if ($qty_to_reserve > 0 && $fk_entrepot_source > 0) {
         $mouv = new MouvementStock($db);
         $res1 = $mouv->livraison($user, $fk_product, $fk_entrepot_source, $qty_to_reserve, 0, 'Reservation commande ' . $object->ref);
         $res2 = $mouv->reception($user, $fk_product, $reserve_warehouse_id, $qty_to_reserve, 0, 'Reservation commande ' . $object->ref);
-        
+
         if ($res1 > 0 && $res2 > 0) {
             $reservation = new CalculStockReservation($db);
             if ($reservation->fetchByLineAndProduct($fk_commandeline, $fk_product) > 0) {
@@ -72,7 +72,7 @@ if ($action == 'reserve' && $reserve_warehouse_id > 0) {
         $mouv = new MouvementStock($db);
         $res1 = $mouv->livraison($user, $reservation->fk_product, $reserve_warehouse_id, $reservation->qty, 0, 'Annulation reservation ' . $object->ref);
         $res2 = $mouv->reception($user, $reservation->fk_product, $reservation->fk_entrepot_source, $reservation->qty, 0, 'Annulation reservation ' . $object->ref);
-        
+
         if ($res1 > 0 && $res2 > 0) {
             $reservation->delete($user);
             setEventMessages($langs->trans("StockReservationCanceled"), null, 'mesgs');
@@ -98,7 +98,7 @@ if ($action == 'reserve' && $reserve_warehouse_id > 0) {
     $reservation_static = new CalculStockReservation($db);
     $mouv = new MouvementStock($db);
     $success_count = 0;
-    
+
     foreach ($object->lines as $line) {
         if (!empty($line->fk_product)) {
             $components = $factory->getChildsArbo($line->fk_product);
@@ -112,7 +112,7 @@ if ($action == 'reserve' && $reserve_warehouse_id > 0) {
                         if (isset($product_static->stock_warehouse[$fk_entrepot])) {
                             $stock_qty = $product_static->stock_warehouse[$fk_entrepot]->real;
                         }
-                        
+
                         $needed_qty = $compData[1] * $line->qty;
                         $qty_reserved = 0;
                         $status = 0;
@@ -120,14 +120,14 @@ if ($action == 'reserve' && $reserve_warehouse_id > 0) {
                             $qty_reserved = $reservation_static->qty;
                             $status = $reservation_static->status;
                         }
-                        
+
                         $a_reserver = $needed_qty - $qty_reserved;
                         if ($a_reserver > 0 && $stock_qty > 0 && $status == 0) {
                             $qty_to_reserve = min($a_reserver, $stock_qty);
-                            
+
                             $res1 = $mouv->livraison($user, $compId, $fk_entrepot, $qty_to_reserve, 0, 'Reservation commande ' . $object->ref);
                             $res2 = $mouv->reception($user, $compId, $reserve_warehouse_id, $qty_to_reserve, 0, 'Reservation commande ' . $object->ref);
-                            
+
                             if ($res1 > 0 && $res2 > 0) {
                                 $reservation = new CalculStockReservation($db);
                                 if ($reservation->fetchByLineAndProduct($line->id, $compId) > 0) {
@@ -150,7 +150,7 @@ if ($action == 'reserve' && $reserve_warehouse_id > 0) {
             }
         }
     }
-    
+
     if ($success_count > 0) {
         setEventMessages($langs->trans("StockReservedSuccessfully") . " (" . $success_count . " composants)", null, 'mesgs');
     } else {
@@ -169,20 +169,20 @@ if ($object->id > 0) {
     $head = commande_prepare_head($object);
     dol_fiche_head($head, 'calcul_stock_tab', $langs->trans("CustomerOrder"), -1, 'order');
 
-    $linkback = '<a href="'.DOL_URL_ROOT.'/commande/list.php?restore_lastsearch_values=1">'.$langs->trans("BackToList").'</a>';
+    $linkback = '<a href="' . DOL_URL_ROOT . '/commande/list.php?restore_lastsearch_values=1">' . $langs->trans("BackToList") . '</a>';
     $morehtmlref = '<div class="refidno">';
     $morehtmlref .= $object->ref;
     $morehtmlref .= '</div>';
-    
+
     dol_banner_tab($object, 'ref', $linkback, 1, 'ref', 'ref', $morehtmlref);
 
     print '<div class="fichecenter">';
     print '<div class="underbanner clearboth"></div>';
-    
+
     if (empty($reserve_warehouse_id)) {
         print '<div class="warning">ATTENTION: L\'entrepôt de réservation n\'est pas défini. Allez dans les paramètres du module Calcul Stock pour le sélectionner.</div>';
     }
-    
+
     print '<table class="noborder centpercent">';
     print '<tr class="liste_titre">';
     print '<td>Ligne Commande</td>';
@@ -205,20 +205,20 @@ if ($object->id > 0) {
             $parent_product = new Product($db);
             $parent_product->fetch($line->fk_product);
             $parent_ref_link = $parent_product->getNomUrl(1);
-            
+
             $components = $factory->getChildsArbo($line->fk_product);
-            
+
             if (!empty($components) && is_array($components)) {
                 $comp_count = count($components);
                 $is_first_comp = true;
                 foreach ($components as $compId => $compData) {
                     $product_static->fetch($compId);
                     $product_static->load_stock();
-                    
+
                     $stock_qty = 0;
                     $fk_entrepot = !empty($compData['fk_entrepot']) ? $compData['fk_entrepot'] : 0;
                     $entrepot_name = '';
-                    
+
                     if ($fk_entrepot > 0) {
                         if (isset($product_static->stock_warehouse[$fk_entrepot])) {
                             $stock_qty = $product_static->stock_warehouse[$fk_entrepot]->real;
@@ -230,12 +230,12 @@ if ($object->id > 0) {
                         $stock_qty = $product_static->stock_reel;
                         $entrepot_name = '<span class="opacitymedium">Stock Global</span>';
                     }
-                    
+
                     $comp_qty = $compData[1];
                     $comp_ref_link = $product_static->getNomUrl(1);
                     $comp_label = !empty($product_static->label) ? $product_static->label : $compData[3];
                     $needed_qty = $comp_qty * $line->qty;
-                    
+
                     // Reservation state
                     $qty_reserved = 0;
                     $status = 0;
@@ -245,12 +245,13 @@ if ($object->id > 0) {
                         $status = $reservation_static->status;
                         $reservation_id = $reservation_static->id;
                     }
-                    
+
                     $a_reserver = $needed_qty - $qty_reserved;
-                    if ($a_reserver < 0) $a_reserver = 0;
-                    
+                    if ($a_reserver < 0)
+                        $a_reserver = 0;
+
                     $border_style = ($compId === array_key_last($components)) ? 'border-bottom: 2px solid #ddd;' : 'border-bottom: 1px solid #eee;';
-                    
+
                     print '<tr class="oddeven">';
                     if ($is_first_comp) {
                         print '<td rowspan="' . $comp_count . '" style="vertical-align: top; background-color: #f8f8f8; border-bottom: 2px solid #ddd;">' . $parent_ref_link . '<br>' . $line->product_label . '<br><span class="opacitymedium">Qté Commande: ' . $line->qty . '</span></td>';
@@ -259,7 +260,7 @@ if ($object->id > 0) {
                     print '<td style="' . $border_style . '">' . $comp_ref_link . ' - ' . $comp_label . '</td>';
                     print '<td class="right" style="' . $border_style . '">' . $needed_qty . '</td>';
                     print '<td class="right" style="color: #5cb85c; ' . $border_style . '"><b>' . $qty_reserved . '</b></td>';
-                    
+
                     if ($status == 1) {
                         print '<td class="right" style="' . $border_style . '"><span class="badge" style="background-color: #5cb85c; color: white; padding: 3px 6px; border-radius: 3px;">Consommé</span></td>';
                         print '<td class="right opacitymedium" style="' . $border_style . '">-</td>';
@@ -270,7 +271,7 @@ if ($object->id > 0) {
                         print '<td class="right" style="color: ' . $color . '; ' . $border_style . '"><b>' . $a_reserver . '</b></td>';
                         print '<td class="right" style="' . $border_style . '">' . round($stock_qty, 5) . '</td>';
                         print '<td style="' . $border_style . '">' . $entrepot_name . '</td>';
-                        
+
                         print '<td class="right" style="' . $border_style . '">';
                         if (empty($reserve_warehouse_id)) {
                             print '<span class="error" title="Entrepôt non configuré">Non configuré</span>';
@@ -279,20 +280,20 @@ if ($object->id > 0) {
                         } else {
                             if ($a_reserver > 0 && $stock_qty > 0) {
                                 $max_reserve = min($a_reserver, $stock_qty);
-                                print '<form method="POST" action="'.$_SERVER["PHP_SELF"].'?id='.$object->id.'" style="display:inline-block; margin-bottom: 2px;">';
-                                print '<input type="hidden" name="token" value="'.currentToken().'">';
+                                print '<form method="POST" action="' . $_SERVER["PHP_SELF"] . '?id=' . $object->id . '" style="display:inline-block; margin-bottom: 2px;">';
+                                print '<input type="hidden" name="token" value="' . currentToken() . '">';
                                 print '<input type="hidden" name="action" value="reserve">';
-                                print '<input type="hidden" name="fk_commandeline" value="'.$line->id.'">';
-                                print '<input type="hidden" name="fk_product" value="'.$compId.'">';
-                                print '<input type="hidden" name="fk_entrepot_source" value="'.$fk_entrepot.'">';
-                                print '<input type="number" name="qty" value="'.$max_reserve.'" max="'.$max_reserve.'" min="1" style="width: 50px; margin-right: 5px; padding: 4px;">';
+                                print '<input type="hidden" name="fk_commandeline" value="' . $line->id . '">';
+                                print '<input type="hidden" name="fk_product" value="' . $compId . '">';
+                                print '<input type="hidden" name="fk_entrepot_source" value="' . $fk_entrepot . '">';
+                                print '<input type="number" name="qty" value="' . $max_reserve . '" max="' . $max_reserve . '" min="1" style="width: 50px; margin-right: 5px; padding: 4px;">';
                                 print '<input type="submit" class="button" value="Réserver" style="padding: 4px 8px;">';
                                 print '</form><br>';
                             }
-                            
+
                             if ($qty_reserved > 0) {
-                                print '<a class="button" style="background-color: #d9534f; color: white; border-color: #d43f3a; padding: 4px 8px; text-decoration: none;" href="'.$_SERVER["PHP_SELF"].'?id='.$object->id.'&action=cancel&reservation_id='.$reservation_id.'&token='.currentToken().'">Annuler</a> ';
-                                print '<a class="button" style="background-color: #5cb85c; color: white; border-color: #4cae4c; padding: 4px 8px; text-decoration: none;" href="'.$_SERVER["PHP_SELF"].'?id='.$object->id.'&action=finalize&reservation_id='.$reservation_id.'&token='.currentToken().'">Finaliser</a>';
+                                print '<a class="button" style="background-color: #d9534f; color: white; border-color: #d43f3a; padding: 4px 8px; text-decoration: none;" href="' . $_SERVER["PHP_SELF"] . '?id=' . $object->id . '&action=cancel&reservation_id=' . $reservation_id . '&token=' . currentToken() . '">Annuler</a> ';
+                                print '<a class="button" style="background-color: #5cb85c; color: white; border-color: #4cae4c; padding: 4px 8px; text-decoration: none;" href="' . $_SERVER["PHP_SELF"] . '?id=' . $object->id . '&action=finalize&reservation_id=' . $reservation_id . '&token=' . currentToken() . '">Finaliser</a>';
                             }
                         }
                         print '</td>';
@@ -307,15 +308,15 @@ if ($object->id > 0) {
             }
         }
     }
-    
+
     print '</table>';
-    
+
     if ($reserve_warehouse_id > 0) {
         print '<br><div class="center">';
-        print '<a class="button" href="'.$_SERVER["PHP_SELF"].'?id='.$object->id.'&action=reserve_all&token='.currentToken().'">Réserver tout le disponible</a>';
+        print '<a class="button" href="' . $_SERVER["PHP_SELF"] . '?id=' . $object->id . '&action=reserve_all&token=' . currentToken() . '">Réserver tout le disponible</a>';
         print '</div>';
     }
-    
+
     print '</div>';
     dol_fiche_end();
 } else {

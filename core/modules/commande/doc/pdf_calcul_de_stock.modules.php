@@ -187,8 +187,11 @@ class pdf_calcul_de_stock extends ModelePDFCommandes
                         $h = max($h1, $h2, $h3, $h4);
                         if ($h < 6) $h = 6;
                         
-                        // Alternate row color
-                        if ($fill) {
+                        // Highlight row if stock is less than needed
+                        if ($stock_qty < $needed_qty) {
+                            $pdf->SetFillColor(255, 235, 235); // light red
+                            $pdf->Rect($this->marge_gauche + 10, $curY, $this->page_largeur - $this->marge_gauche - $this->marge_droite - 10, $h, 'F');
+                        } elseif ($fill) {
                             $pdf->SetFillColor(250, 250, 250);
                             $pdf->Rect($this->marge_gauche + 10, $curY, $this->page_largeur - $this->marge_gauche - $this->marge_droite - 10, $h, 'F');
                         }
