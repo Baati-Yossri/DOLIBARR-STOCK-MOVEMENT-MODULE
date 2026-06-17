@@ -156,6 +156,57 @@ if ($action == 'reserve' && $reserve_warehouse_id > 0) {
     } else {
         setEventMessages("Aucun stock supplémentaire disponible pour la réservation.", null, 'warnings');
     }
+} elseif ($action == 'finalize_all') {
+    $sql = "SELECT rowid FROM " . MAIN_DB_PREFIX . "calcul_stock_reservation";
+    $sql .= " WHERE fk_commande = " . $object->id . " AND status = 0";
+    $resql = $db->query($sql);
+
+    if ($resql) {
+        $success_count = 0;
+        $mouv = new MouvementStock($db);
+        while ($obj = $db->fetch_object($resql)) {
+            $reservation = new CalculStockReservation($db);
+            if ($reservation->fetch($obj->rowid) > 0) {
+                if ($reserve_warehouse_id > 0) {
+                    $mouv->livraison($user, $reservation->fk_product, $reserve_warehouse_id, $reservation->qty, 0, 'Consommation finale ' . $object->ref);
+                }
+                $reservation->status = 1;
+                $reservation->update($user);
+                $success_count++;
+            }
+        }
+        if ($success_count > 0) {
+            setEventMessages("Toutes les réservations ont été finalisées (" . $success_count . " lignes).", null, 'mesgs');
+        } else {
+            setEventMessages("Aucune réservation active à finaliser.", null, 'warnings');
+        }
+    }
+} elseif ($action == 'cancel_all' && $reserve_warehouse_id > 0) {
+    $sql = "SELECT rowid FROM " . MAIN_DB_PREFIX . "calcul_stock_reservation";
+    $sql .= " WHERE fk_commande = " . $object->id . " AND status = 0";
+    $resql = $db->query($sql);
+
+    if ($resql) {
+        $success_count = 0;
+        $mouv = new MouvementStock($db);
+        while ($obj = $db->fetch_object($resql)) {
+            $reservation = new CalculStockReservation($db);
+            if ($reservation->fetch($obj->rowid) > 0) {
+                $res1 = $mouv->livraison($user, $reservation->fk_product, $reserve_warehouse_id, $reservation->qty, 0, 'Annulation reservation ' . $object->ref);
+                $res2 = $mouv->reception($user, $reservation->fk_product, $reservation->fk_entrepot_source, $reservation->qty, 0, 'Annulation reservation ' . $object->ref);
+
+                if ($res1 > 0 && $res2 > 0) {
+                    $reservation->delete($user);
+                    $success_count++;
+                }
+            }
+        }
+        if ($success_count > 0) {
+            setEventMessages("Toutes les réservations ont été annulées et remises en stock (" . $success_count . " lignes).", null, 'mesgs');
+        } else {
+            setEventMessages("Aucune réservation active à annuler.", null, 'warnings');
+        }
+    }
 }
 
 /*
@@ -312,8 +363,24 @@ if ($object->id > 0) {
     print '</table>';
 
     if ($reserve_warehouse_id > 0) {
+        $has_active_reservations = false;
+        $sql = "SELECT COUNT(rowid) as nb FROM " . MAIN_DB_PREFIX . "calcul_stock_reservation WHERE fk_commande = " . $object->id . " AND status = 0";
+        $resql = $db->query($sql);
+        if ($resql) {
+            $obj = $db->fetch_object($resql);
+            if ($obj && $obj->nb > 0) {
+                $has_active_reservations = true;
+            }
+        }
+
         print '<br><div class="center">';
         print '<a class="button" href="' . $_SERVER["PHP_SELF"] . '?id=' . $object->id . '&action=reserve_all&token=' . currentToken() . '">Réserver tout le disponible</a>';
+        if ($has_active_reservations) {
+            print '&nbsp; &nbsp;';
+            print '<a class="button" style="background-color: #5cb85c; color: white; border-color: #4cae4c; text-decoration: none;" href="' . $_SERVER["PHP_SELF"] . '?id=' . $object->id . '&action=finalize_all&token=' . currentToken() . '">Finaliser tout</a>';
+            print '&nbsp; &nbsp;';
+            print '<a class="button" style="background-color: #d9534f; color: white; border-color: #d43f3a; text-decoration: none;" href="' . $_SERVER["PHP_SELF"] . '?id=' . $object->id . '&action=cancel_all&token=' . currentToken() . '">Annuler tout</a>';
+        }
         print '</div>';
     }
 
