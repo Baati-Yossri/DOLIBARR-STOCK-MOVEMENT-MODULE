@@ -5,7 +5,7 @@ require_once DOL_DOCUMENT_ROOT . '/product/class/product.class.php';
 require_once DOL_DOCUMENT_ROOT . '/core/lib/pdf.lib.php';
 require_once DOL_DOCUMENT_ROOT . '/custom/calcul_stock/class/calculstockreservation.class.php';
 
-class pdf_calcul_de_stock extends ModelePDFCommandes
+class pdf_calcul_de_besoin extends ModelePDFCommandes
 {
     public $db;
     public $name;
@@ -24,8 +24,8 @@ class pdf_calcul_de_stock extends ModelePDFCommandes
         global $conf, $langs, $mysoc;
 
         $this->db = $db;
-        $this->name = "calcul_de_stock";
-        $this->description = "Modèle Calcul de Stock / Nomenclature";
+        $this->name = "calcul_de_besoin";
+        $this->description = "Modèle Calcul de Besoin / Nomenclature";
         $this->type = 'pdf';
         
         $formatarray = pdf_getFormat();
@@ -48,7 +48,7 @@ class pdf_calcul_de_stock extends ModelePDFCommandes
 
         $objectref = dol_sanitizeFileName($object->ref);
         $dir = $conf->commande->multidir_output[$object->entity] . "/" . $objectref;
-        $file = $dir . "/" . $objectref . "_calcul_de_stock.pdf";
+        $file = $dir . "/" . $objectref . "_calcul_de_besoin.pdf";
 
         if (!file_exists($dir)) {
             dol_mkdir($dir);
@@ -68,7 +68,7 @@ class pdf_calcul_de_stock extends ModelePDFCommandes
         $pdf->AddPage();
 
         $pdf->SetTitle($outputlangs->convToOutputCharset($object->ref));
-        $pdf->SetSubject("Calcul de Stock");
+        $pdf->SetSubject("Calcul de Besoin");
         $pdf->SetCreator("Dolibarr");
 
         $pdf->SetMargins($this->marge_gauche, $this->marge_haute, $this->marge_droite);
@@ -294,11 +294,11 @@ class pdf_calcul_de_stock extends ModelePDFCommandes
         global $conf, $langs;
         $default_font_size = pdf_getPDFFontSize($outputlangs);
         
-        // Title: CALCUL DE STOCK
+        // Title: CALCUL DE BESOIN
         $pdf->SetTextColor(0, 50, 100); // Dark Blue
         $pdf->SetFont('', 'B', $default_font_size + 6);
         $pdf->SetXY($this->marge_gauche, $this->marge_haute);
-        $pdf->MultiCell(100, 10, "CALCUL DE STOCK", 0, 'L');
+        $pdf->MultiCell(100, 10, "CALCUL DE BESOIN", 0, 'L');
         
         // Commande Ref inside a light gray box
         $pdf->SetFillColor(240, 240, 240);
