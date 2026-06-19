@@ -54,35 +54,6 @@ class modCalcul_stock extends DolibarrModules
     {
         $result = parent::init($options);
 
-        if ($result > 0) {
-            // Create extrafields
-            require_once DOL_DOCUMENT_ROOT . '/core/class/extrafields.class.php';
-            $extrafields = new ExtraFields($this->db);
-
-            $extrafields->addExtraField(
-                'entrepot_selection',
-                'Entrepôt',
-                'sellist',
-                100,            // pos
-                '255',          // size
-                'bom_bomline',
-                0,              // unique
-                0,              // required
-                '',             // default_value
-                array('options' => array('entrepot:ref:rowid' => '')), // param
-                1,              // alwayseditable
-                '',             // perms
-                '1',            // list
-                '',             // help
-                '',             // computed
-                '',             // entity
-                '',             // langfile
-                '1',            // enabled
-                0,              // totalizable
-                1               // printable
-            );
-        }
-
         return $result;
     }
 }
