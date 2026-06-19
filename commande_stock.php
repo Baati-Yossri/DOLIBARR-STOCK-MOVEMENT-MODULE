@@ -303,7 +303,12 @@ if ($object->id > 0) {
 
                     $border_style = ($compId === array_key_last($components)) ? 'border-bottom: 2px solid #ddd;' : 'border-bottom: 1px solid #eee;';
 
-                    print '<tr class="oddeven">';
+                    $tr_style = '';
+                    if ($status != 1 && $stock_qty < $a_reserver) {
+                        $tr_style = ' style="background-color: #fff0f0;"';
+                    }
+
+                    print '<tr class="oddeven"' . $tr_style . '>';
                     if ($is_first_comp) {
                         print '<td rowspan="' . $comp_count . '" style="vertical-align: top; background-color: #f8f8f8; border-bottom: 2px solid #ddd;">' . $parent_ref_link . '<br>' . $line->product_label . '<br><span class="opacitymedium">Qté Commande: ' . $line->qty . '</span></td>';
                         $is_first_comp = false;
@@ -320,7 +325,12 @@ if ($object->id > 0) {
                     } else {
                         $color = $a_reserver > 0 ? '#d9534f' : '#5cb85c';
                         print '<td class="right" style="color: ' . $color . '; ' . $border_style . '"><b>' . round($a_reserver, 5) . '</b></td>';
-                        print '<td class="right" style="' . $border_style . '">' . round($stock_qty, 5) . '</td>';
+                        
+                        if ($stock_qty < $a_reserver) {
+                            print '<td class="right" style="color: #d9534f; font-weight: bold; ' . $border_style . '">' . round($stock_qty, 5) . ' <span class="fa fa-exclamation-triangle" title="Stock insuffisant"></span></td>';
+                        } else {
+                            print '<td class="right" style="' . $border_style . '">' . round($stock_qty, 5) . '</td>';
+                        }
                         print '<td style="' . $border_style . '">' . $entrepot_name . '</td>';
 
                         print '<td class="right" style="' . $border_style . '">';
@@ -345,6 +355,13 @@ if ($object->id > 0) {
                             if ($qty_reserved > 0) {
                                 print '<a class="button" style="background-color: #d9534f; color: white; border-color: #d43f3a; padding: 4px 8px; text-decoration: none;" href="' . $_SERVER["PHP_SELF"] . '?id=' . $object->id . '&action=cancel&reservation_id=' . $reservation_id . '&token=' . currentToken() . '">Annuler</a> ';
                                 print '<a class="button" style="background-color: #5cb85c; color: white; border-color: #4cae4c; padding: 4px 8px; text-decoration: none;" href="' . $_SERVER["PHP_SELF"] . '?id=' . $object->id . '&action=finalize&reservation_id=' . $reservation_id . '&token=' . currentToken() . '">Finaliser</a>';
+                            }
+                            
+                            if ($stock_qty < $a_reserver) {
+                                print '<div style="margin-top: 8px;">';
+                                print '<a class="button" style="padding: 4px 6px; font-size: 0.85em; background-color: #f0ad4e; color: white; border-color: #eea236; text-decoration: none;" href="'.DOL_URL_ROOT.'/fourn/commande/card.php?action=create" target="_blank" title="Créer Commande d\'Achat"><span class="fa fa-shopping-cart"></span> Achat</a> ';
+                                print '<a class="button" style="padding: 4px 6px; font-size: 0.85em; background-color: #5bc0de; color: white; border-color: #46b8da; text-decoration: none;" href="'.DOL_URL_ROOT.'/commande/card.php?id='.$object->id.'&action=presend&mode=init" title="Envoyer Email Client"><span class="fa fa-envelope"></span> Email</a>';
+                                print '</div>';
                             }
                         }
                         print '</td>';
