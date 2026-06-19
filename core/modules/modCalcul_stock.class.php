@@ -29,7 +29,7 @@ class modCalcul_stock extends DolibarrModules
             'models' => 1
         );
 
-        $this->depends = array('modCommande', 'modBom');
+        $this->depends = array('modCommande', 'modFactory');
         $this->requiredby = array();
         $this->phpmin = array(7, 0);
         $this->need_dolibarr_version = array(10, 0);
