@@ -369,8 +369,9 @@ if ($object->id > 0) {
                     print '</tr>';
                 }
             } else {
+                $parent_ref_link = $parent_product->getNomUrl(1);
                 print '<tr class="oddeven">';
-                print '<td>' . $line->ref . ' - ' . $line->product_label . ' <span class="opacitymedium">(Qté: ' . $line->qty . ')</span></td>';
+                print '<td>' . $parent_ref_link . ' - ' . $line->product_label . ' <span class="opacitymedium">(Qté: ' . $line->qty . ')</span></td>';
                 print '<td colspan="7" class="opacitymedium">Aucun composant ou nomenclature associée</td>';
                 print '</tr>';
             }
