@@ -1,4 +1,4 @@
-CREATE TABLE llx_calcul_stock_reservation (
+CREATE TABLE IF NOT EXISTS llx_calcul_stock_reservation (
 	rowid integer AUTO_INCREMENT PRIMARY KEY,
 	fk_commande integer NOT NULL,
 	fk_commandeline integer NOT NULL,
