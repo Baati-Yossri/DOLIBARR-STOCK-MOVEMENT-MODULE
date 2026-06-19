@@ -52,8 +52,14 @@ class modCalcul_stock extends DolibarrModules
      */
     public function init($options = '')
     {
-        $result = parent::init($options);
+        $sql = array();
+        
+        // Explicitly load SQL tables to ensure they execute
+        $result = $this->_load_tables('/calcul_stock/sql/');
+        if ($result < 0) {
+            return -1;
+        }
 
-        return $result;
+        return parent::init($options);
     }
 }
