@@ -38,7 +38,7 @@ $reserve_warehouse_id = !empty($conf->global->CALCUL_STOCK_RESERVE_WAREHOUSE_ID)
 if ($action == 'reserve' && $reserve_warehouse_id > 0) {
     $fk_commandeline = GETPOST('fk_commandeline', 'int');
     $fk_product = GETPOST('fk_product', 'int');
-    $qty_to_reserve = GETPOST('qty', 'int');
+    $qty_to_reserve = (float) GETPOST('qty', 'alpha');
     $fk_entrepot_source = GETPOST('fk_entrepot_source', 'int');
 
     if ($qty_to_reserve > 0 && $fk_entrepot_source > 0) {
@@ -353,7 +353,7 @@ if ($object->id > 0) {
                                 print '<input type="hidden" name="fk_commandeline" value="' . $line->id . '">';
                                 print '<input type="hidden" name="fk_product" value="' . $compId . '">';
                                 print '<input type="hidden" name="fk_entrepot_source" value="' . $fk_entrepot . '">';
-                                print '<input type="number" name="qty" value="' . $max_reserve . '" max="' . $max_reserve . '" min="1" style="width: 50px; margin-right: 5px; padding: 4px;">';
+                                print '<input type="number" name="qty" value="' . round($max_reserve, 5) . '" max="' . round($max_reserve, 5) . '" min="0.00001" step="any" style="width: 70px; margin-right: 5px; padding: 4px;">';
                                 print '<input type="submit" class="button" value="Réserver" style="padding: 4px 8px;">';
                                 print '</form><br>';
                             }

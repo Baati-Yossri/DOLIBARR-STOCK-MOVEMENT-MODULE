@@ -59,7 +59,7 @@ class CalculStockReservation extends CommonObject
         $sql .= $this->fk_commandeline . ", ";
         $sql .= $this->fk_product . ", ";
         $sql .= $this->fk_entrepot_source . ", ";
-        $sql .= $this->qty . ", ";
+        $sql .= str_replace(',', '.', $this->qty) . ", ";
         $sql .= (empty($this->status) ? 0 : $this->status) . ", ";
         $sql .= "'" . $this->db->idate(dol_now()) . "'";
         $sql .= ")";
@@ -154,7 +154,7 @@ class CalculStockReservation extends CommonObject
         $this->db->begin();
 
         $sql = "UPDATE " . MAIN_DB_PREFIX . $this->table_element . " SET ";
-        $sql .= "qty = " . $this->qty . ", ";
+        $sql .= "qty = " . str_replace(',', '.', $this->qty) . ", ";
         $sql .= "status = " . $this->status;
         $sql .= " WHERE rowid = " . $this->id;
 
