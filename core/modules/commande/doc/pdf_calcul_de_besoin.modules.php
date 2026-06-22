@@ -81,8 +81,45 @@ class pdf_calcul_de_besoin extends ModelePDFCommandes
         $pdf->SetY($tab_top);
         $curY = $tab_top;
 
-        // Loop on lines
+        require_once DOL_DOCUMENT_ROOT . '/core/class/extrafields.class.php';
+        $extrafields = new ExtraFields($this->db);
+        $extrafields->fetch_name_optionals_label('commandedet');
+        require_once DOL_DOCUMENT_ROOT . '/custom/factory/class/factory.class.php';
+        $factory = new Factory($this->db);
+        $reservation_static = new CalculStockReservation($this->db);
+        $product_static = new Product($this->db);
+
+        // Pre-process lines to group by fusion_group_id
+        $display_blocks = array();
         foreach ($object->lines as $line) {
+            $line->fetch_optionals();
+            $fusion_id = isset($line->array_options['options_fusion_group_id']) ? trim($line->array_options['options_fusion_group_id']) : '';
+
+            if (!empty($fusion_id)) {
+                if (!isset($display_blocks['fusion_'.$fusion_id])) {
+                    $display_blocks['fusion_'.$fusion_id] = array(
+                        'type' => 'fused',
+                        'fusion_id' => $fusion_id,
+                        'lines' => array(),
+                        'qty' => 0,
+                        'refs' => array(),
+                        'labels' => array()
+                    );
+                }
+                $display_blocks['fusion_'.$fusion_id]['lines'][] = $line;
+                $display_blocks['fusion_'.$fusion_id]['qty'] += $line->qty;
+                $display_blocks['fusion_'.$fusion_id]['refs'][] = $line->ref;
+                $display_blocks['fusion_'.$fusion_id]['labels'][] = $line->product_label;
+            } else {
+                $display_blocks['line_'.$line->id] = array(
+                    'type' => 'single',
+                    'line' => $line
+                );
+            }
+        }
+
+        // Loop on blocks
+        foreach ($display_blocks as $blockId => $block) {
             // Check page break before starting a new main product block
             if ($curY > $this->page_hauteur - $this->marge_basse - 30) {
                 $pdf->AddPage();
@@ -91,37 +128,92 @@ class pdf_calcul_de_besoin extends ModelePDFCommandes
                 $pdf->SetY($curY);
             }
 
-            // Fetch BOM components beforehand
-            $components = array();
-            if (!empty($line->fk_product)) {
-                require_once DOL_DOCUMENT_ROOT . '/custom/factory/class/factory.class.php';
-                $factory = new Factory($this->db);
-                $components = $factory->getChildsArbo($line->fk_product);
-            }
-
-            // Calculate overall status for the orderline
-            $status_text = "";
-            if (!empty($components) && is_array($components)) {
-                $total_comps = count($components);
-                $reserved_count = 0;
-                $consumed_count = 0;
-
-                $reservation_static = new CalculStockReservation($this->db);
-                foreach ($components as $compId => $compData) {
-                    if ($reservation_static->fetchByLineAndProduct($line->id, $compId) > 0) {
-                        if ($reservation_static->status == 1) {
-                            $consumed_count++;
-                        } elseif ($reservation_static->status == 0) {
-                            $reserved_count++;
+            $aggregated_components = array();
+            
+            if ($block['type'] == 'single') {
+                $line = $block['line'];
+                $text_title = " Produit: " . $line->ref . " - " . $line->product_label;
+                $header_qty = $line->qty;
+                
+                if (!empty($line->fk_product)) {
+                    $comps = $factory->getChildsArbo($line->fk_product);
+                    if (!empty($comps) && is_array($comps)) {
+                        foreach ($comps as $compId => $compData) {
+                            $aggregated_components[$compId] = array(
+                                'compData' => $compData,
+                                'needed_qty' => $compData[1] * $line->qty,
+                                'lines' => array($line)
+                            );
                         }
                     }
                 }
+            } else {
+                $unique_refs = array_unique($block['refs']);
+                $text_title = " Groupe de fusion: " . $block['fusion_id'] . " (" . implode(', ', $unique_refs) . ")";
+                $header_qty = $block['qty'];
+                
+                foreach ($block['lines'] as $line) {
+                    if (!empty($line->fk_product)) {
+                        $comps = $factory->getChildsArbo($line->fk_product);
+                        if (!empty($comps) && is_array($comps)) {
+                            foreach ($comps as $compId => $compData) {
+                                if (!isset($aggregated_components[$compId])) {
+                                    $aggregated_components[$compId] = array(
+                                        'compData' => $compData,
+                                        'needed_qty' => 0,
+                                        'lines' => array()
+                                    );
+                                }
+                                $aggregated_components[$compId]['needed_qty'] += $compData[1] * $line->qty;
+                                $aggregated_components[$compId]['lines'][] = $line;
+                            }
+                        }
+                    }
+                }
+            }
 
-                if ($consumed_count == $total_comps) {
+            // Calculate overall status text
+            $status_text = "";
+            if (!empty($aggregated_components)) {
+                $total_comps = count($aggregated_components);
+                $reserved_comps = 0;
+                $consumed_comps = 0;
+                
+                foreach ($aggregated_components as $compId => &$aggData) {
+                    $comp_total_lines = count($aggData['lines']);
+                    $comp_consumed_lines = 0;
+                    $comp_reserved_lines = 0;
+                    
+                    foreach ($aggData['lines'] as $l) {
+                        if ($reservation_static->fetchByLineAndProduct($l->id, $compId) > 0) {
+                            if ($reservation_static->status == 1) $comp_consumed_lines++;
+                            elseif ($reservation_static->status == 0) $comp_reserved_lines++;
+                        }
+                    }
+                    
+                    if ($comp_consumed_lines == $comp_total_lines) {
+                        $consumed_comps++;
+                        $aggData['status_text'] = "Consommé";
+                        $aggData['is_consumed'] = true;
+                    } elseif ($comp_reserved_lines + $comp_consumed_lines == $comp_total_lines) {
+                        $reserved_comps++;
+                        $aggData['status_text'] = "Réservé";
+                        $aggData['is_consumed'] = false;
+                    } elseif ($comp_reserved_lines > 0 || $comp_consumed_lines > 0) {
+                        $aggData['status_text'] = "Rés. Partiel";
+                        $aggData['is_consumed'] = false;
+                    } else {
+                        $aggData['status_text'] = "Non réservé";
+                        $aggData['is_consumed'] = false;
+                    }
+                }
+                unset($aggData);
+                
+                if ($consumed_comps == $total_comps) {
                     $status_text = " (CONSOMMÉ)";
-                } elseif ($reserved_count + $consumed_count == $total_comps) {
+                } elseif ($reserved_comps + $consumed_comps == $total_comps) {
                     $status_text = " (RÉSERVÉ)";
-                } elseif ($reserved_count > 0 || $consumed_count > 0) {
+                } elseif ($reserved_comps > 0 || $consumed_comps > 0) {
                     $status_text = " (RÉSERVÉ PARTIEL)";
                 } else {
                     $status_text = " (NON RÉSERVÉ)";
@@ -129,10 +221,10 @@ class pdf_calcul_de_besoin extends ModelePDFCommandes
             }
 
             $pdf->SetFont('', 'B', $default_font_size + 1);
-            $text = " Produit: " . $line->ref . " - " . $line->product_label . $status_text;
+            $text = $text_title . $status_text;
 
             $h_prod1 = $pdf->getStringHeight(140, $text);
-            $h_prod2 = $pdf->getStringHeight($this->page_largeur - $this->marge_gauche - $this->marge_droite - 140, "Qté à produire: " . $line->qty . " ");
+            $h_prod2 = $pdf->getStringHeight($this->page_largeur - $this->marge_gauche - $this->marge_droite - 140, "Qté à produire: " . $header_qty . " ");
             $h_prod = max($h_prod1, $h_prod2);
             if ($h_prod < 8)
                 $h_prod = 8;
@@ -145,7 +237,7 @@ class pdf_calcul_de_besoin extends ModelePDFCommandes
             $pdf->Rect($this->marge_gauche, $curY, $this->page_largeur - $this->marge_gauche - $this->marge_droite, $h_prod, 'DF');
 
             $pdf->MultiCell(140, $h_prod, $text, 0, 'L', 0, 0, $this->marge_gauche, $curY + ($h_prod - $h_prod1) / 2);
-            $pdf->MultiCell($this->page_largeur - $this->marge_gauche - $this->marge_droite - 140, $h_prod, "Qté à produire: " . $line->qty . " ", 0, 'R', 0, 0, $this->marge_gauche + 140, $curY + ($h_prod - $h_prod2) / 2);
+            $pdf->MultiCell($this->page_largeur - $this->marge_gauche - $this->marge_droite - 140, $h_prod, "Qté à produire: " . $header_qty . " ", 0, 'R', 0, 0, $this->marge_gauche + 140, $curY + ($h_prod - $h_prod2) / 2);
 
             $curY += $h_prod + 1;
             $pdf->SetY($curY);
@@ -181,15 +273,18 @@ class pdf_calcul_de_besoin extends ModelePDFCommandes
             $pdf->SetY($curY);
             $pdf->SetFont('', '', $default_font_size - 1);
 
-            // Fetch BOM
+            // Print components
             $has_components = false;
-            if (!empty($components) && is_array($components)) {
+            if (!empty($aggregated_components)) {
                 $has_components = true;
                 $fill = false;
 
-                $product_static = new Product($this->db);
-
-                foreach ($components as $compId => $compData) {
+                foreach ($aggregated_components as $compId => $aggData) {
+                    $compData = $aggData['compData'];
+                    $needed_qty = $aggData['needed_qty'];
+                    $comp_status_text = $aggData['status_text'];
+                    $is_consumed = $aggData['is_consumed'];
+                    
                     // Check page break inside components
                     if ($curY > $this->page_hauteur - $this->marge_basse - 10) {
                         $pdf->Line($this->marge_gauche, $curY, $this->page_largeur - $this->marge_droite, $curY); // bottom line before break
@@ -212,29 +307,10 @@ class pdf_calcul_de_besoin extends ModelePDFCommandes
                     }
                     $stock_qty = round($stock_qty, 5);
 
-                    $comp_qty = $compData[1];
                     $comp_ref = $product_static->ref;
-
-                    // Fetch component reservation status
-                    $comp_status_text = "";
-                    $is_consumed = false;
-                    $reservation_static = new CalculStockReservation($this->db);
-                    if ($reservation_static->fetchByLineAndProduct($line->id, $compId) > 0) {
-                        if ($reservation_static->status == 1) {
-                            $comp_status_text = "Consommé";
-                            $is_consumed = true;
-                        } elseif ($reservation_static->status == 0) {
-                            $comp_status_text = "Réservé";
-                        }
-                    } else {
-                        $comp_status_text = "Non réservé";
-                    }
-
-                    $stock_qty_display = $is_consumed ? "-" : $stock_qty;
-
                     $comp_label = (!empty($product_static->label) ? $product_static->label : $compData[3]);
-
-                    $needed_qty = $comp_qty * $line->qty;
+                    
+                    $stock_qty_display = $is_consumed ? "-" : $stock_qty;
 
                     $h1 = $pdf->getStringHeight(25, " " . $comp_ref);
                     $h2 = $pdf->getStringHeight($this->page_largeur - $this->marge_gauche - $this->marge_droite - 113, " " . $comp_label);
