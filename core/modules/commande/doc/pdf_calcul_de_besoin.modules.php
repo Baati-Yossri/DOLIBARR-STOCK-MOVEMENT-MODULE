@@ -89,6 +89,8 @@ class pdf_calcul_de_besoin extends ModelePDFCommandes
         $reservation_static = new CalculStockReservation($this->db);
         $product_static = new Product($this->db);
 
+        $global_components = array();
+
         // Pre-process lines to group by fusion_group_id
         $display_blocks = array();
         foreach ($object->lines as $line) {
@@ -96,8 +98,8 @@ class pdf_calcul_de_besoin extends ModelePDFCommandes
             $fusion_id = isset($line->array_options['options_fusion_group_id']) ? trim($line->array_options['options_fusion_group_id']) : '';
 
             if (!empty($fusion_id)) {
-                if (!isset($display_blocks['fusion_'.$fusion_id])) {
-                    $display_blocks['fusion_'.$fusion_id] = array(
+                if (!isset($display_blocks['fusion_' . $fusion_id])) {
+                    $display_blocks['fusion_' . $fusion_id] = array(
                         'type' => 'fused',
                         'fusion_id' => $fusion_id,
                         'lines' => array(),
@@ -106,12 +108,12 @@ class pdf_calcul_de_besoin extends ModelePDFCommandes
                         'labels' => array()
                     );
                 }
-                $display_blocks['fusion_'.$fusion_id]['lines'][] = $line;
-                $display_blocks['fusion_'.$fusion_id]['qty'] += $line->qty;
-                $display_blocks['fusion_'.$fusion_id]['refs'][] = $line->ref;
-                $display_blocks['fusion_'.$fusion_id]['labels'][] = $line->product_label;
+                $display_blocks['fusion_' . $fusion_id]['lines'][] = $line;
+                $display_blocks['fusion_' . $fusion_id]['qty'] += $line->qty;
+                $display_blocks['fusion_' . $fusion_id]['refs'][] = $line->ref;
+                $display_blocks['fusion_' . $fusion_id]['labels'][] = $line->product_label;
             } else {
-                $display_blocks['line_'.$line->id] = array(
+                $display_blocks['line_' . $line->id] = array(
                     'type' => 'single',
                     'line' => $line
                 );
@@ -129,12 +131,12 @@ class pdf_calcul_de_besoin extends ModelePDFCommandes
             }
 
             $aggregated_components = array();
-            
+
             if ($block['type'] == 'single') {
                 $line = $block['line'];
                 $text_title = " Produit: " . $line->ref . " - " . $line->product_label;
                 $header_qty = $line->qty;
-                
+
                 if (!empty($line->fk_product)) {
                     $comps = $factory->getChildsArbo($line->fk_product);
                     if (!empty($comps) && is_array($comps)) {
@@ -151,7 +153,7 @@ class pdf_calcul_de_besoin extends ModelePDFCommandes
                 $unique_refs = array_unique($block['refs']);
                 $text_title = " Groupe de fusion: " . $block['fusion_id'] . " (" . implode(', ', $unique_refs) . ")";
                 $header_qty = $block['qty'];
-                
+
                 foreach ($block['lines'] as $line) {
                     if (!empty($line->fk_product)) {
                         $comps = $factory->getChildsArbo($line->fk_product);
@@ -178,19 +180,21 @@ class pdf_calcul_de_besoin extends ModelePDFCommandes
                 $total_comps = count($aggregated_components);
                 $reserved_comps = 0;
                 $consumed_comps = 0;
-                
+
                 foreach ($aggregated_components as $compId => &$aggData) {
                     $comp_total_lines = count($aggData['lines']);
                     $comp_consumed_lines = 0;
                     $comp_reserved_lines = 0;
-                    
+
                     foreach ($aggData['lines'] as $l) {
                         if ($reservation_static->fetchByLineAndProduct($l->id, $compId) > 0) {
-                            if ($reservation_static->status == 1) $comp_consumed_lines++;
-                            elseif ($reservation_static->status == 0) $comp_reserved_lines++;
+                            if ($reservation_static->status == 1)
+                                $comp_consumed_lines++;
+                            elseif ($reservation_static->status == 0)
+                                $comp_reserved_lines++;
                         }
                     }
-                    
+
                     if ($comp_consumed_lines == $comp_total_lines) {
                         $consumed_comps++;
                         $aggData['status_text'] = "Consommé";
@@ -208,7 +212,7 @@ class pdf_calcul_de_besoin extends ModelePDFCommandes
                     }
                 }
                 unset($aggData);
-                
+
                 if ($consumed_comps == $total_comps) {
                     $status_text = " (CONSOMMÉ)";
                 } elseif ($reserved_comps + $consumed_comps == $total_comps) {
@@ -284,7 +288,7 @@ class pdf_calcul_de_besoin extends ModelePDFCommandes
                     $needed_qty = $aggData['needed_qty'];
                     $comp_status_text = $aggData['status_text'];
                     $is_consumed = $aggData['is_consumed'];
-                    
+
                     // Check page break inside components
                     if ($curY > $this->page_hauteur - $this->marge_basse - 10) {
                         $pdf->Line($this->marge_gauche, $curY, $this->page_largeur - $this->marge_droite, $curY); // bottom line before break
@@ -309,8 +313,20 @@ class pdf_calcul_de_besoin extends ModelePDFCommandes
 
                     $comp_ref = $product_static->ref;
                     $comp_label = (!empty($product_static->label) ? $product_static->label : $compData[3]);
-                    
+
                     $stock_qty_display = $is_consumed ? "-" : $stock_qty;
+
+                    if (!isset($global_components[$compId])) {
+                        $global_components[$compId] = array(
+                            'ref' => $comp_ref,
+                            'label' => $comp_label,
+                            'needed' => 0,
+                            'stock' => $stock_qty
+                        );
+                    }
+                    if (!$is_consumed) {
+                        $global_components[$compId]['needed'] += $needed_qty;
+                    }
 
                     $h1 = $pdf->getStringHeight(25, " " . $comp_ref);
                     $h2 = $pdf->getStringHeight($this->page_largeur - $this->marge_gauche - $this->marge_droite - 113, " " . $comp_label);
@@ -368,6 +384,111 @@ class pdf_calcul_de_besoin extends ModelePDFCommandes
             }
 
             $curY += 8; // space before next orderline
+        }
+
+        // Print Shortages Table (Ressources manquantes)
+        $shortages = array();
+        foreach ($global_components as $compId => $data) {
+            if ($data['needed'] > $data['stock']) {
+                $data['lacking'] = $data['needed'] - $data['stock'];
+                $shortages[] = $data;
+            }
+        }
+
+        if (count($shortages) > 0) {
+            $curY += 10;
+            if ($curY > $this->page_hauteur - $this->marge_basse - 40) {
+                $pdf->AddPage();
+                $this->_pagehead($pdf, $object, 0, $outputlangs);
+                $curY = 40;
+                $pdf->SetY($curY);
+            }
+
+            // Perforation line
+            $pdf->SetLineStyle(array('dash' => '2,2', 'color' => array(150, 150, 150)));
+            $pdf->Line($this->marge_gauche, $curY, $this->page_largeur - $this->marge_droite, $curY);
+            $pdf->SetLineStyle(array('dash' => 0, 'color' => array(0, 0, 0)));
+            $curY += 8;
+
+            $pdf->SetFont('', 'B', $default_font_size + 2);
+            $pdf->SetTextColor(200, 0, 0); // Red title
+            $pdf->MultiCell($this->page_largeur - $this->marge_gauche - $this->marge_droite, 8, "Ressources manquantes", 0, 'L', 0, 1, $this->marge_gauche, $curY);
+            $pdf->SetTextColor(0, 0, 0);
+            $curY += 8;
+
+            // Headers
+            $pdf->SetFont('', 'B', $default_font_size - 1);
+            $pdf->SetFillColor(245, 245, 245);
+            $pdf->SetDrawColor(120, 120, 120);
+            $pdf->Rect($this->marge_gauche, $curY, $this->page_largeur - $this->marge_gauche - $this->marge_droite, 6, 'F');
+            $pdf->MultiCell(25, 6, "Réf", 0, 'L', 0, 0, $this->marge_gauche + 2, $curY + 1);
+            $pdf->MultiCell($this->page_largeur - $this->marge_gauche - $this->marge_droite - 85, 6, "Libellé", 0, 'L', 0, 0, $this->marge_gauche + 27, $curY + 1);
+            $pdf->MultiCell(20, 6, "Besoin", 0, 'R', 0, 0, $this->page_largeur - $this->marge_droite - 60, $curY + 1);
+            $pdf->MultiCell(20, 6, "En Stock", 0, 'R', 0, 0, $this->page_largeur - $this->marge_droite - 40, $curY + 1);
+            $pdf->MultiCell(20, 6, "Manquant", 0, 'R', 0, 0, $this->page_largeur - $this->marge_droite - 20, $curY + 1);
+
+            // Borders
+            $pdf->Line($this->marge_gauche, $curY, $this->page_largeur - $this->marge_droite, $curY);
+            $pdf->Line($this->marge_gauche, $curY + 6, $this->page_largeur - $this->marge_droite, $curY + 6);
+            $pdf->Line($this->marge_gauche, $curY, $this->marge_gauche, $curY + 6);
+            $pdf->Line($this->marge_gauche + 25, $curY, $this->marge_gauche + 25, $curY + 6);
+            $pdf->Line($this->page_largeur - $this->marge_droite - 60, $curY, $this->page_largeur - $this->marge_droite - 60, $curY + 6);
+            $pdf->Line($this->page_largeur - $this->marge_droite - 40, $curY, $this->page_largeur - $this->marge_droite - 40, $curY + 6);
+            $pdf->Line($this->page_largeur - $this->marge_droite - 20, $curY, $this->page_largeur - $this->marge_droite - 20, $curY + 6);
+            $pdf->Line($this->page_largeur - $this->marge_droite, $curY, $this->page_largeur - $this->marge_droite, $curY + 6);
+
+            $curY += 6;
+            $pdf->SetY($curY);
+            $pdf->SetFont('', '', $default_font_size - 1);
+
+            $fill = false;
+            foreach ($shortages as $shortage) {
+                if ($curY > $this->page_hauteur - $this->marge_basse - 10) {
+                    $pdf->Line($this->marge_gauche, $curY, $this->page_largeur - $this->marge_droite, $curY);
+                    $pdf->AddPage();
+                    $this->_pagehead($pdf, $object, 0, $outputlangs);
+                    $curY = 40;
+                    $pdf->SetY($curY);
+                    $pdf->Line($this->marge_gauche, $curY, $this->page_largeur - $this->marge_droite, $curY);
+                }
+
+                $h1 = $pdf->getStringHeight(25, " " . $shortage['ref']);
+                $h2 = $pdf->getStringHeight($this->page_largeur - $this->marge_gauche - $this->marge_droite - 85, " " . $shortage['label']);
+                $h = max($h1, $h2);
+                if ($h < 6)
+                    $h = 6;
+
+                if ($fill) {
+                    $pdf->SetFillColor(250, 250, 250);
+                    $pdf->Rect($this->marge_gauche, $curY, $this->page_largeur - $this->marge_gauche - $this->marge_droite, $h, 'F');
+                }
+
+                $pdf->MultiCell(25, $h, " " . $shortage['ref'], 0, 'L', 0, 0, $this->marge_gauche, $curY + ($h - $h1) / 2);
+                $pdf->MultiCell($this->page_largeur - $this->marge_gauche - $this->marge_droite - 85, $h, " " . $shortage['label'], 0, 'L', 0, 0, $this->marge_gauche + 25, $curY + ($h - $h2) / 2);
+
+                $pdf->MultiCell(20, $h, $shortage['needed'] . " ", 0, 'R', 0, 0, $this->page_largeur - $this->marge_droite - 60, $curY + ($h - 6) / 2);
+                $pdf->MultiCell(20, $h, $shortage['stock'] . " ", 0, 'R', 0, 0, $this->page_largeur - $this->marge_droite - 40, $curY + ($h - 6) / 2);
+
+                $pdf->SetTextColor(200, 0, 0);
+                $pdf->SetFont('', 'B', $default_font_size - 1);
+                $pdf->MultiCell(20, $h, $shortage['lacking'] . " ", 0, 'R', 0, 0, $this->page_largeur - $this->marge_droite - 20, $curY + ($h - 6) / 2);
+                $pdf->SetTextColor(0, 0, 0);
+                $pdf->SetFont('', '', $default_font_size - 1);
+
+                $pdf->Line($this->marge_gauche, $curY, $this->marge_gauche, $curY + $h);
+                $pdf->Line($this->marge_gauche + 25, $curY, $this->marge_gauche + 25, $curY + $h);
+                $pdf->Line($this->page_largeur - $this->marge_droite - 60, $curY, $this->page_largeur - $this->marge_droite - 60, $curY + $h);
+                $pdf->Line($this->page_largeur - $this->marge_droite - 40, $curY, $this->page_largeur - $this->marge_droite - 40, $curY + $h);
+                $pdf->Line($this->page_largeur - $this->marge_droite - 20, $curY, $this->page_largeur - $this->marge_droite - 20, $curY + $h);
+                $pdf->Line($this->page_largeur - $this->marge_droite, $curY, $this->page_largeur - $this->marge_droite, $curY + $h);
+
+                $pdf->Line($this->marge_gauche, $curY, $this->page_largeur - $this->marge_droite, $curY);
+
+                $curY += $h;
+                $pdf->SetY($curY);
+                $fill = !$fill;
+            }
+            $pdf->Line($this->marge_gauche, $curY, $this->page_largeur - $this->marge_droite, $curY);
         }
 
         $pdf->Close();
