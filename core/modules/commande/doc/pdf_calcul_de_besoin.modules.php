@@ -397,7 +397,7 @@ class pdf_calcul_de_besoin extends ModelePDFCommandes
         $pdf->MultiCell(70, 8, "COMMANDE : " . $object->ref, 1, 'C', 1);
 
         // Date
-        $date = dol_print_date($object->date, 'daytext');
+        $date = dol_print_date(dol_now(), 'daytext');
         $pdf->SetFont('', '', $default_font_size);
         $pdf->SetXY($this->page_largeur - $this->marge_droite - 70, $this->marge_haute + 10);
         $pdf->MultiCell(70, 5, "Date : " . $date, 0, 'R');
