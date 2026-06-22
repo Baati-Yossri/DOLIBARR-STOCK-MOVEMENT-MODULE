@@ -17,7 +17,7 @@ A powerful Dolibarr ERP module designed to bridge the gap between Sales Orders (
 
 This module relies on the following ecosystem:
 - **Dolibarr ERP/CRM** (v10.0+ recommended)
-- **Factory Module:** A custom BOM/Manufacturing module must be installed and active (replaces core native BOM).
+- **Factory Module:** A custom BOM/Manufacturing module must be installed and active (replaces core native BOM). You can find it here: [DOLIBARR-CUSTOM-BOM-MODULE](https://github.com/Baati-Yossri/DOLIBARR-CUSTOM-BOM-MODULE--originally-factory-)
 - *(Optional)* **Fusionlancement:** If you intend to use the grouped orderlines feature, your orderlines must utilize a `fusion_group_id` extrafield.
 
 ## 🚀 Installation
