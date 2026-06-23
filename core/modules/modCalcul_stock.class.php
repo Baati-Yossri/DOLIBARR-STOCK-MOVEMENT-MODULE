@@ -17,6 +17,9 @@ class modCalcul_stock extends DolibarrModules
         $this->description = "Module for Stock Calculation and Consumption";
         $this->version = '1.0';
         $this->const_name = 'MAIN_MODULE_' . strtoupper($this->name);
+        $this->editor_name = 'Baati Yosri';
+        $this->editor_url = 'https://github.com/Baati-Yossri';
+
         $this->picto = 'technic';
 
         // Data directories to create when module is enabled
@@ -53,7 +56,7 @@ class modCalcul_stock extends DolibarrModules
     public function init($options = '')
     {
         $sql = array();
-        
+
         // Explicitly load SQL tables to ensure they execute
         $result = $this->_load_tables('/calcul_stock/sql/');
         if ($result < 0) {
