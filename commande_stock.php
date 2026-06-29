@@ -307,6 +307,9 @@ if ($object->id > 0) {
                         }
                     } else {
                         $stock_qty = $product_static->stock_reel;
+                        if ($reserve_warehouse_id > 0 && isset($product_static->stock_warehouse[$reserve_warehouse_id])) {
+                            $stock_qty -= $product_static->stock_warehouse[$reserve_warehouse_id]->real;
+                        }
                         $entrepot_name = '<span class="opacitymedium">Stock Global</span>';
                     }
 

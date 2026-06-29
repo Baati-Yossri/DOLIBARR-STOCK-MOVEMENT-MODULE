@@ -310,6 +310,11 @@ class pdf_calcul_de_besoin extends ModelePDFCommandes
                         $stock_qty = $product_static->stock_warehouse[$fk_entrepot]->real;
                     } else {
                         $stock_qty = $product_static->stock_reel;
+                        global $conf;
+                        $reserve_warehouse_id = !empty($conf->global->CALCUL_STOCK_RESERVE_WAREHOUSE_ID) ? $conf->global->CALCUL_STOCK_RESERVE_WAREHOUSE_ID : 0;
+                        if ($reserve_warehouse_id > 0 && isset($product_static->stock_warehouse[$reserve_warehouse_id])) {
+                            $stock_qty -= $product_static->stock_warehouse[$reserve_warehouse_id]->real;
+                        }
                     }
                     $stock_qty = round($stock_qty, 5);
 
