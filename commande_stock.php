@@ -387,8 +387,7 @@ if ($object->id > 0) {
                             
                             if ($stock_qty < $a_reserver) {
                                 print '<div style="margin-top: 8px;">';
-                                print '<a class="button" style="padding: 4px 6px; font-size: 0.85em; background-color: #f0ad4e; color: white; border-color: #eea236; text-decoration: none;" href="'.DOL_URL_ROOT.'/fourn/commande/card.php?action=create" target="_blank" title="Créer Commande d\'Achat"><span class="fa fa-shopping-cart"></span> Achat</a> ';
-                                print '<a class="button" style="padding: 4px 6px; font-size: 0.85em; background-color: #5bc0de; color: white; border-color: #46b8da; text-decoration: none;" href="'.DOL_URL_ROOT.'/commande/card.php?id='.$object->id.'&action=presend&mode=init" title="Envoyer Email Client"><span class="fa fa-envelope"></span> Email</a>';
+                                print '<a class="button" style="padding: 4px 6px; font-size: 0.85em; background-color: #f0ad4e; color: white; border-color: #eea236; text-decoration: none;" href="'.DOL_URL_ROOT.'/fourn/commande/card.php?action=create" target="_blank" title="Créer Commande d\'Achat"><span class="fa fa-shopping-cart"></span> Achat</a>';
                                 print '</div>';
                             }
                         }
@@ -408,6 +407,7 @@ if ($object->id > 0) {
 
     print '</table>';
 
+    print '<br><div class="center">';
     if ($reserve_warehouse_id > 0) {
         $has_active_reservations = false;
         $sql = "SELECT COUNT(rowid) as nb FROM " . MAIN_DB_PREFIX . "calcul_stock_reservation WHERE fk_commande = " . $object->id . " AND status = 0";
@@ -419,7 +419,6 @@ if ($object->id > 0) {
             }
         }
 
-        print '<br><div class="center">';
         print '<a class="button" href="' . $_SERVER["PHP_SELF"] . '?id=' . $object->id . '&action=reserve_all&token=' . currentToken() . '">Réserver tout le disponible</a>';
         if ($has_active_reservations) {
             print '&nbsp; &nbsp;';
@@ -427,8 +426,13 @@ if ($object->id > 0) {
             print '&nbsp; &nbsp;';
             print '<a class="button" style="background-color: #d9534f; color: white; border-color: #d43f3a; text-decoration: none;" href="' . $_SERVER["PHP_SELF"] . '?id=' . $object->id . '&action=cancel_all&token=' . currentToken() . '">Annuler tout</a>';
         }
-        print '</div>';
+        print '&nbsp; &nbsp;';
     }
+
+    // Global Email Button
+    print '<a class="button" style="background-color: #5bc0de; color: white; border-color: #46b8da; text-decoration: none;" href="'.DOL_URL_ROOT.'/commande/card.php?id='.$object->id.'&action=presend&mode=init" title="Envoyer Email Client"><span class="fa fa-envelope"></span> Envoyer Email</a>';
+
+    print '</div>';
 
     print '</div>';
     dol_fiche_end();
