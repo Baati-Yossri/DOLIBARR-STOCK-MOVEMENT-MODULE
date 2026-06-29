@@ -120,15 +120,17 @@ class pdf_calcul_de_besoin extends ModelePDFCommandes
             }
         }
 
+        $is_first_block = true;
         // Loop on blocks
         foreach ($display_blocks as $blockId => $block) {
-            // Check page break before starting a new main product block
-            if ($curY > $this->page_hauteur - $this->marge_basse - 30) {
+            // Force page break for every block except the first one
+            if (!$is_first_block) {
                 $pdf->AddPage();
                 $this->_pagehead($pdf, $object, 0, $outputlangs);
                 $curY = 40;
                 $pdf->SetY($curY);
             }
+            $is_first_block = false;
 
             $aggregated_components = array();
 
@@ -396,13 +398,11 @@ class pdf_calcul_de_besoin extends ModelePDFCommandes
         }
 
         if (count($shortages) > 0) {
-            $curY += 10;
-            if ($curY > $this->page_hauteur - $this->marge_basse - 40) {
-                $pdf->AddPage();
-                $this->_pagehead($pdf, $object, 0, $outputlangs);
-                $curY = 40;
-                $pdf->SetY($curY);
-            }
+            // Force new page for Ressources manquantes
+            $pdf->AddPage();
+            $this->_pagehead($pdf, $object, 0, $outputlangs);
+            $curY = 40;
+            $pdf->SetY($curY);
 
             // Perforation line
             $pdf->SetLineStyle(array('dash' => '2,2', 'color' => array(150, 150, 150)));
