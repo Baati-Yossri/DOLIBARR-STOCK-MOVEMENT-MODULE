@@ -38,38 +38,60 @@ $reserve_warehouse_id = !empty($conf->global->CALCUL_STOCK_RESERVE_WAREHOUSE_ID)
 if ($action == 'reserve' && $reserve_warehouse_id > 0) {
     $fk_commandeline = GETPOST('fk_commandeline', 'int');
     $fk_product = GETPOST('fk_product', 'int');
-    $qty_to_reserve = (float) GETPOST('qty', 'alpha');
-    $fk_entrepot_source = GETPOST('fk_entrepot_source', 'int');
+    $qty_raw = isset($_POST['qty']) ? $_POST['qty'] : (isset($_GET['qty']) ? $_GET['qty'] : 0);
+    $qty_to_reserve = (float) str_replace(',', '.', $qty_raw);
+    
+    $fk_raw = isset($_POST['fk_entrepot_source']) ? $_POST['fk_entrepot_source'] : (isset($_GET['fk_entrepot_source']) ? $_GET['fk_entrepot_source'] : 0);
+    $fk_entrepot_source = (int) $fk_raw;
 
     if ($qty_to_reserve > 0 && $fk_entrepot_source > 0) {
-        $mouv = new MouvementStock($db);
-        $res1 = $mouv->livraison($user, $fk_product, $fk_entrepot_source, $qty_to_reserve, 0, 'Reservation commande ' . $object->ref);
-        $res2 = $mouv->reception($user, $fk_product, $reserve_warehouse_id, $qty_to_reserve, 0, 'Reservation commande ' . $object->ref);
-
-        if ($res1 > 0 && $res2 > 0) {
-            $reservation = new CalculStockReservation($db);
-            $res_save = 0;
-            if ($reservation->fetchByLineAndProduct($fk_commandeline, $fk_product) > 0) {
-                $reservation->qty += $qty_to_reserve;
-                $res_save = $reservation->update($user);
-            } else {
-                $reservation->fk_commande = $object->id;
-                $reservation->fk_commandeline = $fk_commandeline;
-                $reservation->fk_product = $fk_product;
-                $reservation->fk_entrepot_source = $fk_entrepot_source;
-                $reservation->qty = $qty_to_reserve;
-                $reservation->status = 0;
-                $res_save = $reservation->create($user);
-            }
-            
-            if ($res_save > 0) {
-                setEventMessages($langs->trans("StockReservedSuccessfully"), null, 'mesgs');
-            } else {
-                setEventMessages("Erreur d'enregistrement de la réservation: " . implode(', ', $reservation->errors), null, 'errors');
-            }
-        } else {
-            setEventMessages($langs->trans("ErrorStockReservation"), null, 'errors');
+        // Verify stock doesn't exceed available
+        $product_static = new Product($db);
+        $product_static->fetch($fk_product);
+        $product_static->load_stock();
+        $stock_available = 0;
+        if (isset($product_static->stock_warehouse[$fk_entrepot_source])) {
+            $stock_available = $product_static->stock_warehouse[$fk_entrepot_source]->real;
         }
+
+        if ($qty_to_reserve > $stock_available) {
+            setEventMessages("Action annulée : La quantité demandée (" . $qty_to_reserve . ") dépasse le stock actuellement disponible (" . $stock_available . ") dans l'entrepôt source.", null, 'errors');
+        } else {
+            $mouv = new MouvementStock($db);
+            $res1 = $mouv->livraison($user, $fk_product, $fk_entrepot_source, $qty_to_reserve, 0, 'Reservation commande ' . $object->ref);
+            $res2 = $mouv->reception($user, $fk_product, $reserve_warehouse_id, $qty_to_reserve, 0, 'Reservation commande ' . $object->ref);
+
+            if ($res1 > 0 && $res2 > 0) {
+                $reservation = new CalculStockReservation($db);
+                $res_save = 0;
+                if ($reservation->fetchByLineAndProduct($fk_commandeline, $fk_product) > 0) {
+                    $reservation->qty += $qty_to_reserve;
+                    $res_save = $reservation->update($user);
+                } else {
+                    $reservation->fk_commande = $object->id;
+                    $reservation->fk_commandeline = $fk_commandeline;
+                    $reservation->fk_product = $fk_product;
+                    $reservation->fk_entrepot_source = $fk_entrepot_source;
+                    $reservation->qty = $qty_to_reserve;
+                    $reservation->status = 0;
+                    $res_save = $reservation->create($user);
+                }
+                
+                if ($res_save > 0) {
+                    setEventMessages($langs->trans("StockReservedSuccessfully"), null, 'mesgs');
+                } else {
+                    setEventMessages("Erreur d'enregistrement de la réservation: " . implode(', ', $reservation->errors), null, 'errors');
+                }
+            } else {
+                $err_msg = $mouv->error;
+                if (empty($err_msg) && count($mouv->errors) > 0) {
+                    $err_msg = implode(', ', $mouv->errors);
+                }
+                setEventMessages("Erreur de mouvement de stock : " . $err_msg, null, 'errors');
+            }
+        }
+    } else {
+        setEventMessages("Quantité ou entrepôt source invalide.", null, 'errors');
     }
 } elseif ($action == 'cancel' && $reserve_warehouse_id > 0) {
     $reservation_id = GETPOST('reservation_id', 'int');
