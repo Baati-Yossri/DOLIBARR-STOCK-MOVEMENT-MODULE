@@ -31,6 +31,57 @@ function calcul_stock_log_event($db, $user, $object, $label, $details) {
     $actioncomm->create($user);
 }
 
+function calcul_stock_update_order_status($db, $object) {
+    require_once DOL_DOCUMENT_ROOT . '/custom/factory/class/factory.class.php';
+    require_once DOL_DOCUMENT_ROOT . '/custom/calcul_stock/class/calculstockreservation.class.php';
+    require_once DOL_DOCUMENT_ROOT . '/core/class/extrafields.class.php';
+    
+    $factory = new Factory($db);
+    $reservation_static = new CalculStockReservation($db);
+    
+    $total_needed = 0;
+    $total_reserved = 0;
+    $total_consumed = 0;
+
+    foreach ($object->lines as $line) {
+        if (!empty($line->fk_product)) {
+            $components = $factory->getChildsArbo($line->fk_product);
+            if (!empty($components) && is_array($components)) {
+                foreach ($components as $compId => $compData) {
+                    $needed = $compData[1] * $line->qty;
+                    $total_needed += $needed;
+                    
+                    if ($reservation_static->fetchByLineAndProduct($line->id, $compId) > 0) {
+                        if ($reservation_static->status == 1) {
+                            $total_consumed += $reservation_static->qty;
+                        } else {
+                            $total_reserved += $reservation_static->qty;
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    $status_code = '0'; // Non réservé
+    if ($total_needed > 0) {
+        // We use a small epsilon for float comparison safety
+        if ($total_consumed >= ($total_needed - 0.0001)) {
+            $status_code = '3'; // Consommé
+        } elseif (($total_reserved + $total_consumed) >= ($total_needed - 0.0001)) {
+            $status_code = '2'; // Réservé
+        } elseif ($total_reserved > 0 || $total_consumed > 0) {
+            $status_code = '1'; // Réservé partiellement
+        }
+    }
+    
+    $extrafields = new ExtraFields($db);
+    $extrafields->fetch_name_optionals_label($object->table_element);
+    $object->fetch_optionals();
+    $object->array_options['options_calc_stock_status'] = $status_code;
+    $object->insertExtraFields();
+}
+
 $id = GETPOST('id', 'int');
 $ref = GETPOST('ref', 'alpha');
 $action = GETPOST('action', 'aZ09');
@@ -258,6 +309,10 @@ if ($action == 'reserve' && $reserve_warehouse_id > 0) {
             setEventMessages("Aucune réservation active à annuler.", null, 'warnings');
         }
     }
+}
+
+if (in_array($action, array('reserve', 'cancel', 'finalize', 'reserve_all', 'finalize_all', 'cancel_all'))) {
+    calcul_stock_update_order_status($db, $object);
 }
 
 /*

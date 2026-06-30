@@ -63,6 +63,11 @@ class modCalcul_stock extends DolibarrModules
             return -1;
         }
 
+        require_once DOL_DOCUMENT_ROOT . '/core/class/extrafields.class.php';
+        $extrafields = new ExtraFields($this->db);
+        $param = "0,Non réservé\n1,Réservé partiellement\n2,Réservé\n3,Consommé";
+        $extrafields->addExtraField('calc_stock_status', 'État Réservation Stock', 'select', 100, '', 'commande', 0, 0, '0', $param, 1, '', 1, 'Statut de réservation calcul_stock', '', '', 'calcul_stock');
+
         return parent::init($options);
     }
 }
