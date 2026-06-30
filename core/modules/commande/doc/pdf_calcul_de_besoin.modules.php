@@ -361,13 +361,28 @@ class pdf_calcul_de_besoin extends ModelePDFCommandes
                         $pdf->Rect($this->marge_gauche, $curY, $this->page_largeur - $this->marge_gauche - $this->marge_droite, $h, 'F');
                     }
 
+                    $is_stock_lacking = (!$is_consumed && $stock_qty < $effective_needed);
+
                     $pdf->MultiCell(25, $h, " " . $comp_ref, 0, 'L', 0, 0, $this->marge_gauche, $curY + ($h - $h1) / 2);
                     $pdf->MultiCell($this->page_largeur - $this->marge_gauche - $this->marge_droite - 113, $h, " " . $comp_label, 0, 'L', 0, 0, $this->marge_gauche + 25, $curY + ($h - $h2) / 2);
                     $pdf->MultiCell(20, $h, $comp_status_text, 0, 'C', 0, 0, $this->page_largeur - $this->marge_droite - 88, $curY + ($h - $h2_status) / 2);
                     $pdf->MultiCell(14, $h, $needed_qty . " ", 0, 'R', 0, 0, $this->page_largeur - $this->marge_droite - 68, $curY + ($h - $h3) / 2);
+                    
+                    if ($is_stock_lacking) {
+                        $pdf->SetTextColor(220, 0, 0); // Red
+                        $pdf->SetFont('', 'B', $default_font_size - 1);
+                    }
+                    
                     $pdf->MultiCell(14, $h, $stock_qty_display . " ", 0, 'R', 0, 0, $this->page_largeur - $this->marge_droite - 54, $curY + ($h - $h4) / 2);
+                    
+                    if ($is_stock_lacking) {
+                        $pdf->SetTextColor(0, 0, 0); // Reset to black
+                        $pdf->SetFont('', '', $default_font_size - 1); // Reset to normal
+                    }
+                    
                     $pdf->MultiCell(20, $h, "", 0, 'R', 0, 0, $this->page_largeur - $this->marge_droite - 40, $curY);
                     $pdf->MultiCell(20, $h, "", 0, 'R', 0, 0, $this->page_largeur - $this->marge_droite - 20, $curY);
+
 
                     // Vertical borders
                     $pdf->Line($this->marge_gauche, $curY, $this->marge_gauche, $curY + $h);
