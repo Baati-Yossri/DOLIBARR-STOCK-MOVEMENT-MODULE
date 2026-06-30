@@ -187,15 +187,19 @@ class pdf_calcul_de_besoin extends ModelePDFCommandes
                     $comp_total_lines = count($aggData['lines']);
                     $comp_consumed_lines = 0;
                     $comp_reserved_lines = 0;
+                    $comp_reserved_qty = 0;
 
                     foreach ($aggData['lines'] as $l) {
                         if ($reservation_static->fetchByLineAndProduct($l->id, $compId) > 0) {
+                            $comp_reserved_qty += $reservation_static->qty;
                             if ($reservation_static->status == 1)
                                 $comp_consumed_lines++;
                             elseif ($reservation_static->status == 0)
                                 $comp_reserved_lines++;
                         }
                     }
+                    
+                    $aggData['reserved_qty'] = $comp_reserved_qty;
 
                     if ($comp_consumed_lines == $comp_total_lines) {
                         $consumed_comps++;
@@ -331,8 +335,12 @@ class pdf_calcul_de_besoin extends ModelePDFCommandes
                             'stock' => $stock_qty
                         );
                     }
+                    
+                    $effective_needed = $needed_qty - $aggData['reserved_qty'];
+                    if ($effective_needed < 0) $effective_needed = 0;
+                    
                     if (!$is_consumed) {
-                        $global_components[$compId]['needed'] += $needed_qty;
+                        $global_components[$compId]['needed'] += $effective_needed;
                     }
 
                     $h1 = $pdf->getStringHeight(25, " " . $comp_ref);
@@ -344,8 +352,8 @@ class pdf_calcul_de_besoin extends ModelePDFCommandes
                     if ($h < 6)
                         $h = 6;
 
-                    // Highlight row if stock is less than needed
-                    if (!$is_consumed && $stock_qty < $needed_qty) {
+                    // Highlight row if stock is less than effective needed
+                    if (!$is_consumed && $stock_qty < $effective_needed) {
                         $pdf->SetFillColor(255, 235, 235); // light red
                         $pdf->Rect($this->marge_gauche, $curY, $this->page_largeur - $this->marge_gauche - $this->marge_droite, $h, 'F');
                     } elseif ($fill) {
