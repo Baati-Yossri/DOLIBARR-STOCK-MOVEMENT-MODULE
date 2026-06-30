@@ -13,6 +13,23 @@ require_once DOL_DOCUMENT_ROOT . '/product/class/product.class.php';
 require_once DOL_DOCUMENT_ROOT . '/product/stock/class/entrepot.class.php';
 require_once DOL_DOCUMENT_ROOT . '/product/stock/class/mouvementstock.class.php';
 require_once DOL_DOCUMENT_ROOT . '/custom/calcul_stock/class/calculstockreservation.class.php';
+require_once DOL_DOCUMENT_ROOT . '/comm/action/class/actioncomm.class.php';
+
+function calcul_stock_log_event($db, $user, $object, $label, $details) {
+    $actioncomm = new ActionComm($db);
+    $actioncomm->type_code = 'AC_OTH_AUTO';
+    $actioncomm->label = $label;
+    $actioncomm->note_private = $details;
+    $actioncomm->fk_element = $object->id;
+    $actioncomm->elementtype = $object->element;
+    $actioncomm->fk_project = $object->fk_project;
+    $actioncomm->socid = $object->socid;
+    $actioncomm->datep = dol_now();
+    $actioncomm->percentage = 100;
+    $actioncomm->userownerid = $user->id;
+    $actioncomm->authorid = $user->id;
+    $actioncomm->create($user);
+}
 
 $id = GETPOST('id', 'int');
 $ref = GETPOST('ref', 'alpha');
@@ -78,6 +95,7 @@ if ($action == 'reserve' && $reserve_warehouse_id > 0) {
                 }
                 
                 if ($res_save > 0) {
+                    calcul_stock_log_event($db, $user, $object, 'Réservation de stock (Calcul Besoin)', "Réservation de " . round($qty_to_reserve, 5) . " unités pour le composant ID " . $fk_product . " depuis l'entrepôt ID " . $fk_entrepot_source);
                     setEventMessages($langs->trans("StockReservedSuccessfully"), null, 'mesgs');
                 } else {
                     setEventMessages("Erreur d'enregistrement de la réservation: " . implode(', ', $reservation->errors), null, 'errors');
@@ -103,6 +121,7 @@ if ($action == 'reserve' && $reserve_warehouse_id > 0) {
 
         if ($res1 > 0 && $res2 > 0) {
             $reservation->delete($user);
+            calcul_stock_log_event($db, $user, $object, 'Annulation de réservation (Calcul Besoin)', "Annulation de réservation de " . round($reservation->qty, 5) . " unités pour le composant ID " . $reservation->fk_product);
             setEventMessages($langs->trans("StockReservationCanceled"), null, 'mesgs');
         } else {
             setEventMessages($langs->trans("ErrorCancelReservation"), null, 'errors');
@@ -118,6 +137,7 @@ if ($action == 'reserve' && $reserve_warehouse_id > 0) {
         }
         $reservation->status = 1;
         $reservation->update($user);
+        calcul_stock_log_event($db, $user, $object, 'Consommation finale de stock (Calcul Besoin)', "Consommation finale de " . round($reservation->qty, 5) . " unités pour le composant ID " . $reservation->fk_product);
         setEventMessages($langs->trans("ReservationFinalized"), null, 'mesgs');
     }
 } elseif ($action == 'reserve_all' && $reserve_warehouse_id > 0) {
@@ -180,6 +200,7 @@ if ($action == 'reserve' && $reserve_warehouse_id > 0) {
     }
 
     if ($success_count > 0) {
+        calcul_stock_log_event($db, $user, $object, 'Réservation globale de stock (Calcul Besoin)', "Réservation automatique pour " . $success_count . " composants disponibles.");
         setEventMessages($langs->trans("StockReservedSuccessfully") . " (" . $success_count . " composants)", null, 'mesgs');
     } else {
         setEventMessages("Aucun stock supplémentaire disponible pour la réservation.", null, 'warnings');
@@ -204,6 +225,7 @@ if ($action == 'reserve' && $reserve_warehouse_id > 0) {
             }
         }
         if ($success_count > 0) {
+            calcul_stock_log_event($db, $user, $object, 'Consommation globale de stock (Calcul Besoin)', "Consommation finale pour " . $success_count . " composants réservés.");
             setEventMessages("Toutes les réservations ont été finalisées (" . $success_count . " lignes).", null, 'mesgs');
         } else {
             setEventMessages("Aucune réservation active à finaliser.", null, 'warnings');
@@ -230,6 +252,7 @@ if ($action == 'reserve' && $reserve_warehouse_id > 0) {
             }
         }
         if ($success_count > 0) {
+            calcul_stock_log_event($db, $user, $object, 'Annulation globale de réservation (Calcul Besoin)', "Annulation et remise en stock pour " . $success_count . " composants.");
             setEventMessages("Toutes les réservations ont été annulées et remises en stock (" . $success_count . " lignes).", null, 'mesgs');
         } else {
             setEventMessages("Aucune réservation active à annuler.", null, 'warnings');
