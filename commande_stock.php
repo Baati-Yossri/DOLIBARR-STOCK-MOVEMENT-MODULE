@@ -14,6 +14,7 @@ require_once DOL_DOCUMENT_ROOT . '/product/stock/class/entrepot.class.php';
 require_once DOL_DOCUMENT_ROOT . '/product/stock/class/mouvementstock.class.php';
 require_once DOL_DOCUMENT_ROOT . '/custom/calcul_stock/class/calculstockreservation.class.php';
 require_once DOL_DOCUMENT_ROOT . '/comm/action/class/actioncomm.class.php';
+require_once DOL_DOCUMENT_ROOT . '/societe/class/societe.class.php';
 
 function calcul_stock_log_event($db, $user, $object, $label, $details) {
     $actioncomm = new ActionComm($db);
@@ -342,20 +343,22 @@ if ($object->id > 0) {
 
     print '<table class="noborder centpercent">';
     print '<tr class="liste_titre">';
-    print '<td>Ligne Commande</td>';
+    print '<td style="width: 14%;">Ligne Commande</td>';
     print '<td>Composant</td>';
+    print '<td>Fournisseur</td>';
     print '<td class="right">Besoin</td>';
     print '<td class="right">Réservé</td>';
     print '<td class="right">A Réserver</td>';
     print '<td class="right">Stock Dispo</td>';
     print '<td>Entrepôt Source</td>';
-    print '<td class="right" style="min-width: 200px;">Action</td>';
+    print '<td class="right nowrap" style="width: 1%;">Action</td>';
     print '</tr>';
 
     $factory = new Factory($db);
     $product_static = new Product($db);
     $entrepot_static = new Entrepot($db);
     $reservation_static = new CalculStockReservation($db);
+    $societe_static = new Societe($db);
 
     foreach ($object->lines as $line) {
         if (!empty($line->fk_product)) {
@@ -396,6 +399,22 @@ if ($object->id > 0) {
                     $comp_label = !empty($product_static->label) ? $product_static->label : $compData[3];
                     $needed_qty = $comp_qty * $line->qty;
 
+                    // Fetch supplier(s) for component
+                    $sql_fourn = "SELECT DISTINCT s.rowid FROM " . MAIN_DB_PREFIX . "societe as s";
+                    $sql_fourn .= " INNER JOIN " . MAIN_DB_PREFIX . "product_fournisseur_price as pfp ON pfp.fk_soc = s.rowid";
+                    $sql_fourn .= " WHERE pfp.fk_product = " . ((int) $compId);
+                    $resql_fourn = $db->query($sql_fourn);
+                    $suppliers_list = array();
+                    if ($resql_fourn) {
+                        while ($obj_fourn = $db->fetch_object($resql_fourn)) {
+                            if ($societe_static->fetch($obj_fourn->rowid) > 0) {
+                                $suppliers_list[] = $societe_static->getNomUrl(1);
+                            }
+                        }
+                        $db->free($resql_fourn);
+                    }
+                    $fournisseur_str = !empty($suppliers_list) ? implode(', ', $suppliers_list) : '<span class="opacitymedium">-</span>';
+
                     // Reservation state
                     $qty_reserved = 0;
                     $status = 0;
@@ -423,6 +442,7 @@ if ($object->id > 0) {
                         $is_first_comp = false;
                     }
                     print '<td style="' . $border_style . '">' . $comp_ref_link . ' - ' . $comp_label . '</td>';
+                    print '<td style="' . $border_style . '">' . $fournisseur_str . '</td>';
                     print '<td class="right" style="' . $border_style . '">' . round($needed_qty, 5) . '</td>';
                     print '<td class="right" style="color: #5cb85c; ' . $border_style . '"><b>' . round($qty_reserved, 5) . '</b></td>';
 
@@ -430,7 +450,7 @@ if ($object->id > 0) {
                         print '<td class="right" style="' . $border_style . '"><span class="badge" style="background-color: #5cb85c; color: white; padding: 3px 6px; border-radius: 3px;">Consommé</span></td>';
                         print '<td class="right opacitymedium" style="' . $border_style . '">-</td>';
                         print '<td style="' . $border_style . '">' . $entrepot_name . '</td>';
-                        print '<td class="right opacitymedium" style="' . $border_style . '">Terminé</td>';
+                        print '<td class="right opacitymedium nowrap" style="' . $border_style . '">Terminé</td>';
                     } else {
                         $color = $a_reserver > 0 ? '#d9534f' : '#5cb85c';
                         print '<td class="right" style="color: ' . $color . '; ' . $border_style . '"><b>' . round($a_reserver, 5) . '</b></td>';
@@ -442,7 +462,7 @@ if ($object->id > 0) {
                         }
                         print '<td style="' . $border_style . '">' . $entrepot_name . '</td>';
 
-                        print '<td class="right" style="' . $border_style . '">';
+                        print '<td class="right nowrap" style="' . $border_style . '">';
                         if (empty($reserve_warehouse_id)) {
                             print '<span class="error" title="Entrepôt non configuré">Non configuré</span>';
                         } else if ($fk_entrepot == 0) {
@@ -450,25 +470,31 @@ if ($object->id > 0) {
                         } else {
                             if ($a_reserver > 0 && $stock_qty > 0) {
                                 $max_reserve = min($a_reserver, $stock_qty);
-                                print '<form method="POST" action="' . $_SERVER["PHP_SELF"] . '?id=' . $object->id . '" style="display:inline-block; margin-bottom: 2px;">';
+                                print '<div style="margin-bottom: 4px;">';
+                                print '<form method="POST" action="' . $_SERVER["PHP_SELF"] . '?id=' . $object->id . '" style="display:inline-block;">';
                                 print '<input type="hidden" name="token" value="' . currentToken() . '">';
                                 print '<input type="hidden" name="action" value="reserve">';
                                 print '<input type="hidden" name="fk_commandeline" value="' . $line->id . '">';
                                 print '<input type="hidden" name="fk_product" value="' . $compId . '">';
                                 print '<input type="hidden" name="fk_entrepot_source" value="' . $fk_entrepot . '">';
-                                print '<input type="number" name="qty" value="' . round($max_reserve, 5) . '" max="' . round($max_reserve, 5) . '" min="0.00001" step="any" style="width: 70px; margin-right: 5px; padding: 4px;">';
+                                print '<input type="number" name="qty" value="' . round($max_reserve, 5) . '" max="' . round($max_reserve, 5) . '" min="0.00001" step="any" style="width: 65px; margin-right: 4px; padding: 3px 4px;">';
                                 print '<input type="submit" class="button" value="Réserver" style="padding: 4px 8px;">';
-                                print '</form><br>';
+                                print '</form>';
+                                print '</div>';
                             }
 
                             if ($qty_reserved > 0) {
-                                print '<a class="button" style="background-color: #d9534f; color: white; border-color: #d43f3a; padding: 4px 8px; text-decoration: none;" href="' . $_SERVER["PHP_SELF"] . '?id=' . $object->id . '&action=cancel&reservation_id=' . $reservation_id . '&token=' . currentToken() . '">Annuler</a> ';
-                                print '<a class="button" style="background-color: #5cb85c; color: white; border-color: #4cae4c; padding: 4px 8px; text-decoration: none;" href="' . $_SERVER["PHP_SELF"] . '?id=' . $object->id . '&action=finalize&reservation_id=' . $reservation_id . '&token=' . currentToken() . '">Finaliser</a>';
+                                print '<div style="margin-bottom: 4px;">';
+                                print '<a class="button" style="background-color: #d9534f; color: white; border-color: #d43f3a; padding: 4px 8px; text-decoration: none; display: inline-block;" href="' . $_SERVER["PHP_SELF"] . '?id=' . $object->id . '&action=cancel&reservation_id=' . $reservation_id . '&token=' . currentToken() . '">Annuler</a>';
+                                print '</div>';
+                                print '<div style="margin-bottom: 4px;">';
+                                print '<a class="button" style="background-color: #5cb85c; color: white; border-color: #4cae4c; padding: 4px 8px; text-decoration: none; display: inline-block;" href="' . $_SERVER["PHP_SELF"] . '?id=' . $object->id . '&action=finalize&reservation_id=' . $reservation_id . '&token=' . currentToken() . '">Finaliser</a>';
+                                print '</div>';
                             }
                             
                             if ($stock_qty < $a_reserver) {
-                                print '<div style="margin-top: 8px;">';
-                                print '<a class="button" style="padding: 4px 6px; font-size: 0.85em; background-color: #f0ad4e; color: white; border-color: #eea236; text-decoration: none;" href="'.DOL_URL_ROOT.'/fourn/commande/card.php?action=create" target="_blank" title="Créer Commande d\'Achat"><span class="fa fa-shopping-cart"></span> Achat</a>';
+                                print '<div style="margin-bottom: 4px;">';
+                                print '<a class="button" style="padding: 4px 6px; font-size: 0.85em; background-color: #f0ad4e; color: white; border-color: #eea236; text-decoration: none; display: inline-block;" href="'.DOL_URL_ROOT.'/fourn/commande/card.php?action=create" target="_blank" title="Créer Commande d\'Achat"><span class="fa fa-shopping-cart"></span> Achat</a>';
                                 print '</div>';
                             }
                         }
@@ -480,7 +506,7 @@ if ($object->id > 0) {
                 $parent_ref_link = $parent_product->getNomUrl(1);
                 print '<tr class="oddeven">';
                 print '<td>' . $parent_ref_link . ' - ' . $line->product_label . ' <span class="opacitymedium">(Qté: ' . $line->qty . ')</span></td>';
-                print '<td colspan="7" class="opacitymedium">Aucun composant ou nomenclature associée</td>';
+                print '<td colspan="8" class="opacitymedium">Aucun composant ou nomenclature associée</td>';
                 print '</tr>';
             }
         }
